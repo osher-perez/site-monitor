@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
-import Link from "next/link"; 
+import Link from "next/link";
 import "./globals.css";
-
 
 export default function RootLayout({
   children,
@@ -20,15 +19,21 @@ export default function RootLayout({
                   <Link href="/" className="hover:text-blue-400 transition">
                     דף הבית
                   </Link>
+                  <li>
+                    <Link
+                      href="/add-site"
+                      className="bg-blue-600 hover:bg-blue-500 px-3 py-1 rounded transition text-sm"
+                    >
+                      + הוספת אתר
+                    </Link>
+                  </li>
                 </li>
               </ul>
             </nav>
           </div>
         </header>
 
-        <main className="grow container mx-auto p-6">
-          {children}
-        </main>
+        <main className="grow container mx-auto p-6">{children}</main>
 
         <footer className="bg-gray-800 border-t border-gray-700 p-4 text-center text-sm text-gray-400">
           <p>© {new Date().getFullYear()} Site Monitor - כל הזכויות שמורות</p>
