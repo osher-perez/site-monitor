@@ -19,14 +19,15 @@ export default function RootLayout({
                   <Link href="/" className="hover:text-blue-400 transition">
                     דף הבית
                   </Link>
-                  <li>
-                    <Link
-                      href="/add-site"
-                      className="bg-blue-600 hover:bg-blue-500 px-3 py-1 rounded transition text-sm"
-                    >
-                      + הוספת אתר
-                    </Link>
-                  </li>
+                </li>
+
+                <li>
+                  <Link
+                    href="/add-site"
+                    className="bg-blue-600 hover:bg-blue-500 px-3 py-1 rounded transition text-sm"
+                  >
+                    + הוספת אתר
+                  </Link>
                 </li>
               </ul>
             </nav>
