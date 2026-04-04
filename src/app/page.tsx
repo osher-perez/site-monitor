@@ -49,32 +49,35 @@ export default function Home() {
       ) : (
         <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 text-white">
           {sites.map((site, index) => (
-            <div
+            <Link
+              href={`/site/${encodeURIComponent(site.url)}`}
               key={index}
-              className="bg-gray-800 p-6 rounded-2xl border border-gray-700 shadow-xl hover:scale-105 transition-transform duration-200"
+              className="block"
             >
-              <div className="flex justify-between items-start mb-6">
-                <h3 className="font-mono text-lg font-semibold truncate w-3/4 text-white uppercase tracking-tight">
-                  {site.url.replace("https://", "").replace("http://", "")}
-                </h3>
-                <span
-                  className={`px-3 py-1 rounded-full text-xs font-black uppercase shadow-sm ${
-                    site.status === "UP"
-                      ? "bg-green-500 text-green-950"
-                      : "bg-red-500 text-red-950"
-                  }`}
-                >
-                  {site.status}
-                </span>
-              </div>
+              <div className="bg-gray-800 p-6 rounded-2xl border border-gray-700 shadow-xl hover:scale-105 transition-transform duration-200 cursor-pointer">
+                <div className="flex justify-between items-start mb-6">
+                  <h3 className="font-mono text-lg font-semibold truncate w-3/4 text-white uppercase tracking-tight">
+                    {site.url.replace("https://", "").replace("http://", "")}
+                  </h3>
+                  <span
+                    className={`px-3 py-1 rounded-full text-xs font-black uppercase shadow-sm ${
+                      site.status === "UP"
+                        ? "bg-green-500 text-green-950"
+                        : "bg-red-500 text-red-950"
+                    }`}
+                  >
+                    {site.status}
+                  </span>
+                </div>
 
-              <div className="border-t border-gray-700 pt-4 mt-4 flex justify-between items-center text-gray-400 text-sm">
-                <span>בדיקה אחרונה:</span>
-                <span className="text-white font-medium">
-                  {new Date(site.last_checked).toLocaleTimeString("he-IL")}
-                </span>
+                <div className="border-t border-gray-700 pt-4 mt-4 flex justify-between items-center text-gray-400 text-sm">
+                  <span>בדיקה אחרונה:</span>
+                  <span className="text-white font-medium">
+                    {new Date(site.last_checked).toLocaleTimeString("he-IL")}
+                  </span>
+                </div>
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       )}
