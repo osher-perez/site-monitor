@@ -1,4 +1,4 @@
-import os
+import os  
 import requests
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -19,7 +19,7 @@ app.add_middleware(
 )
 
 # חיבור ל-MongoDB
-MONGO_URI = os.getenv("MONGO_URI", "mongodb://127.0.0.1:27017")
+MONGO_URI = os.getenv("MONGO_URI", "mongodb://127.0.0.1:27017")  
 client = MongoClient(MONGO_URI)
 db = client.get_database("site_monitor")
 sites_collection = db.sites
