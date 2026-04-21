@@ -1,4 +1,4 @@
-import os
+import os  
 import requests
 import time
 import logging # כלי חדש לניהול שגיאות
@@ -23,6 +23,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+<<<<<<< HEAD
 # חיבור ל-DB עם הגנת קריסה
 try:
     MONGO_URI = os.getenv("MONGO_URI", "mongodb://127.0.0.1:27017")
@@ -34,6 +35,23 @@ try:
     logger.info("✅ Connected to MongoDB successfully")
 except Exception as e:
     logger.error(f"❌ Could not connect to MongoDB: {e}")
+=======
+# חיבור ל-MongoDB
+MONGO_URI = os.getenv("MONGO_URI", "mongodb://127.0.0.1:27017")  
+client = MongoClient(MONGO_URI)
+db = client.get_database("site_monitor")
+sites_collection = db.sites
+
+@app.get("/")
+def home():
+    return {"status": "Backend is running"}
+
+# בדיקה 2 שלך נכשלה כאן - וודא שהשם הוא בדיוק list-sites
+@app.get("/list-sites")
+def list_sites():
+    sites = list(sites_collection.find({}, {"_id": 0}))
+    return sites
+>>>>>>> main
 
 @app.get("/check")
 def check_site(url: str):
