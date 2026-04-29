@@ -1,100 +1,119 @@
 import React from 'react';
+import { FreeScanner } from '@/components/marketing/FreeScanner';
 
 export const metadata = {
-  title: 'חבילות ומחירים',
-  description: 'הצטרפו לניטור אתרים מקצועי. התחילו בבדיקה חינם ועברו לניטור רציף עם שבוע ניסיון.',
+  title: 'ניטור אתרים - חבילות ומחירים | בדיקת אתר חינם',
+  description: 'גלה תוך שניות אם האתר שלך מאובטח ומהיר. ניטור אתרים מקצועי עם התראות וואטסאפ.',
 };
 
 export default function PricingPage() {
   return (
-    <div className="py-16 px-4 max-w-7xl mx-auto">
+    <div className="py-16 px-4 max-w-7xl mx-auto transition-colors duration-300">
+      
       {/* Hero Section */}
       <div className="text-center mb-16">
-        <h1 className="text-4xl md:text-5xl font-extrabold text-gray-900 mb-4">
-          שקיפות מלאה, בלי הפתעות
+        <h1 className="text-4xl md:text-6xl font-black text-slate-900 dark:text-white mb-6 leading-tight">
+          אל תחכה שהלקוחות יגידו לך שהאתר למטה
         </h1>
-        <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-          בחר את המסלול שמתאים לעסק שלך. התחל בבדיקה ידנית מהירה כדי לראות אותנו בפעולה.
+        <p className="text-xl text-slate-600 dark:text-slate-400 max-w-3xl mx-auto leading-relaxed">
+          מערכת הניטור המקיפה בישראל. בדוק את האתר שלך עכשיו בחינם וקבל דו&quot;ח זמינות, מהירות ואבטחה תוך שניות.
         </p>
       </div>
 
-      {/* The Hook: Manual Scan Area */}
-      <div className="bg-blue-50 border-2 border-blue-200 rounded-3xl p-8 mb-20 max-w-3xl mx-auto text-center">
-        <h2 className="text-2xl font-bold text-blue-900 mb-4">רוצה לטעום? בדוק אתר עכשיו</h2>
-        <div className="flex flex-col md:flex-row gap-4 justify-center">
-          <input 
-            type="url" 
-            placeholder="הכנס כתובת אתר (https://example.com)"
-            className="flex-1 px-4 py-3 rounded-xl border-none ring-1 ring-gray-300 focus:ring-2 focus:ring-blue-500 outline-none"
-          />
-          <button className="bg-blue-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-blue-700 transition shadow-lg">
-            הרץ בדיקה חינם
-          </button>
-        </div>
-        <p className="mt-4 text-sm text-blue-700">
-          * בדיקה חד-פעמית הכוללת מהירות טעינה וסטטוס שרת.
-        </p>
+      {/* הרכיב האינטראקטיבי של הסורק */}
+      <FreeScanner />
+
+      {/* כותרת למחירון */}
+      <div className="text-center mb-12">
+        <h2 className="text-3xl font-bold text-slate-900 dark:text-white underline decoration-blue-500 underline-offset-8">
+          בחר את המסלול המתאים לך
+        </h2>
       </div>
 
-      {/* Pricing Cards */}
-      <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
+      {/* Pricing Cards Section */}
+      <div className="grid md:grid-cols-2 gap-10 max-w-5xl mx-auto">
         
         {/* Professional Plan */}
-        <div className="bg-white border-2 border-gray-100 rounded-3xl p-8 shadow-xl relative overflow-hidden flex flex-col">
-          <div className="absolute top-0 right-0 bg-blue-600 text-white px-4 py-1 rounded-bl-xl text-sm font-bold">
-            מומלץ לעסקים
+        <div className="bg-white dark:bg-slate-800 border-2 border-blue-500 rounded-3xl p-10 shadow-2xl relative flex flex-col transform hover:-translate-y-1 transition-all">
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-blue-500 text-white px-6 py-1 rounded-b-xl text-sm font-bold tracking-wide">
+            הבחירה הנפוצה
           </div>
-          <h3 className="text-2xl font-bold mb-2">Professional</h3>
-          <p className="text-gray-500 mb-6 font-medium">כל מה שצריך כדי לישון בשקט</p>
-          <div className="text-5xl font-black mb-6">₪49 <span className="text-lg font-normal text-gray-400">/חודש</span></div>
           
-          <ul className="space-y-4 mb-10 flex-grow text-right">
-            <li className="flex items-center gap-2">
-              <span className="text-green-500">✔</span> ניטור רציף כל 60 שניות
+          <div className="mb-8 text-right">
+            <h3 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">Professional</h3>
+            <p className="text-slate-500 dark:text-slate-400 font-medium italic">כל מה שצריך כדי לישון בשקט</p>
+          </div>
+
+          <div className="mb-8 text-right">
+            <span className="text-6xl font-black text-slate-900 dark:text-white">₪49</span>
+            <span className="text-slate-400 text-lg"> / חודש</span>
+          </div>
+          
+          <ul className="space-y-5 mb-10 flex-grow text-right" dir="rtl">
+            <li className="flex items-center gap-3 text-slate-700 dark:text-slate-300">
+              <span className="text-green-500 font-bold text-xl">✓</span>
+              <span>ניטור רציף כל 60 שניות</span>
             </li>
-            <li className="flex items-center gap-2">
-              <span className="text-green-500">✔</span> התראות בוואטסאפ ובמייל
+            <li className="flex items-center gap-3 text-slate-700 dark:text-slate-300 font-bold">
+              <span className="text-green-500 font-bold text-xl">✓</span>
+              <span>התראות בוואטסאפ, SMS ומייל</span>
             </li>
-            <li className="flex items-center gap-2 font-bold text-blue-600">
-              <span className="text-green-500">✔</span> 7 ימי ניסיון חינם
+            <li className="flex items-center gap-3 text-blue-600 dark:text-blue-400 font-bold">
+              <span className="text-green-500 font-bold text-xl">✓</span>
+              <span>7 ימי ניסיון חינם - ללא התחייבות</span>
             </li>
-            <li className="flex items-center gap-2">
-              <span className="text-green-500">✔</span> דוחות ביצועים שבועיים
+            <li className="flex items-center gap-3 text-slate-700 dark:text-slate-300">
+              <span className="text-green-500 font-bold text-xl">✓</span>
+              <span>דוחות ביצועים למייל</span>
             </li>
           </ul>
 
-          <button className="w-full bg-gray-900 text-white py-4 rounded-2xl font-bold hover:bg-black transition">
+          <button className="w-full bg-blue-600 text-white py-5 rounded-2xl font-bold text-xl hover:bg-blue-700 transition shadow-lg shadow-blue-200 dark:shadow-none">
             התחל שבוע ניסיון חינם
           </button>
         </div>
 
         {/* Agency Plan */}
-        <div className="bg-white border border-gray-200 rounded-3xl p-8 flex flex-col">
-          <h3 className="text-2xl font-bold mb-2">Agency</h3>
-          <p className="text-gray-500 mb-6">לניהול צי אתרים ולקוחות</p>
-          <div className="text-5xl font-black mb-6">₪149 <span className="text-lg font-normal text-gray-400">/חודש</span></div>
+        <div className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-10 flex flex-col transition-all">
+          <div className="mb-8 text-right">
+            <h3 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">Agency</h3>
+            <p className="text-slate-500 dark:text-slate-400 font-medium">ניהול מקצועי לצי אתרים</p>
+          </div>
+
+          <div className="mb-8 text-right">
+            <span className="text-6xl font-black text-slate-900 dark:text-white">₪149</span>
+            <span className="text-slate-400 text-lg"> / חודש</span>
+          </div>
           
-          <ul className="space-y-4 mb-10 flex-grow text-right">
-            <li className="flex items-center gap-2">
-              <span className="text-green-500">✔</span> עד 50 אתרים במקביל
+          <ul className="space-y-5 mb-10 flex-grow text-right" dir="rtl">
+            <li className="flex items-center gap-3 text-slate-600 dark:text-slate-400">
+              <span className="text-slate-400 font-bold text-xl">✓</span>
+              <span>עד 50 אתרים במקביל</span>
             </li>
-            <li className="flex items-center gap-2">
-              <span className="text-green-500">✔</span> דוחות ממותגים (White Label)
+            <li className="flex items-center gap-3 text-slate-600 dark:text-slate-400">
+              <span className="text-slate-400 font-bold text-xl">✓</span>
+              <span>דוחות White Label ללקוחות שלך</span>
             </li>
-            <li className="flex items-center gap-2">
-              <span className="text-green-500">✔</span> API פתוח למפתחים
+            <li className="flex items-center gap-3 text-slate-600 dark:text-slate-400">
+              <span className="text-slate-400 font-bold text-xl">✓</span>
+              <span>בדיקה מ-5 מיקומים בעולם</span>
             </li>
-            <li className="flex items-center gap-2">
-              <span className="text-green-500">✔</span> תמיכה טלפונית אישית
+            <li className="flex items-center gap-3 text-slate-600 dark:text-slate-400">
+              <span className="text-slate-400 font-bold text-xl">✓</span>
+              <span>תמיכה אישית ב-Slack/טלפון</span>
             </li>
           </ul>
 
-          <button className="w-full border-2 border-gray-900 text-gray-900 py-4 rounded-2xl font-bold hover:bg-gray-50 transition">
-            צור קשר עם מכירות
+          <button className="w-full border-2 border-slate-900 dark:border-slate-100 text-slate-900 dark:text-white py-5 rounded-2xl font-bold text-xl hover:bg-slate-900 hover:text-white dark:hover:bg-white dark:hover:text-black transition">
+            צור קשר עם המכירות
           </button>
         </div>
 
       </div>
+
+      <p className="text-center mt-12 text-slate-400 text-sm">
+        מאובטח בטכנולוגיית 256-bit SSL. אין צורך בכרטיס אשראי לבדיקה החינמית.
+      </p>
     </div>
   );
 }
