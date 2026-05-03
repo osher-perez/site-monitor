@@ -15,6 +15,7 @@ export default function MarketingHomePage() {
           <PricingSection />
 
           {/* כאן תוכל להוסיף בעתיד בקלות: <TestimonialsSection /> או <FAQSection /> */}
+          
 
         </div>
       </div>
