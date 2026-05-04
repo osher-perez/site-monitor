@@ -1,89 +1,81 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
+import { useState } from "react";
+import { checkSiteAction } from "@/app/actions/check-site";
 
 export const FreeScanner = () => {
-  const [url, setUrl] = useState('');
-  const [isScanning, setIsScanning] = useState(false);
+  const [url, setUrl] = useState("");
+  const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
 
-  const handleScan = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!url) return;
+  // 1. הפונקציה הזו צריכה להיות כאן, גלויה לכל הקומפוננטה
+  const getSpeedColor = (ms: number) => {
+    if (ms < 300) return "text-green-500"; 
+    if (ms < 800) return "text-yellow-500"; 
+    return "text-red-500"; 
+  };
 
-    setIsScanning(true);
-    setResult(null);
+  const handleScan = async () => {
+    if (!url) return;
     
-    // סימולציה של 3 שניות לבדיקה
-    setTimeout(() => {
-      setResult({
-        status: 'online',
-        speed: '0.8s',
-        ssl: 'Valid',
-        security: 'A+'
-      });
-      setIsScanning(false);
-    }, 3000);
+    setLoading(true);
+    setResult(null);
+
+    const data = await checkSiteAction(url);
+    
+    setResult(data);
+    setLoading(false);
   };
 
   return (
-    <div className="w-full max-w-4xl mx-auto mb-20">
-      <div className="bg-blue-50 dark:bg-slate-800 border-2 border-blue-100 dark:border-slate-700 rounded-3xl p-8 shadow-sm">
-        <div className="text-center mb-6">
-          <h2 className="text-2xl font-bold text-blue-900 dark:text-blue-400 mb-2">בדיקת אבחון מהירה (Free Scan)</h2>
-          <p className="text-blue-700 dark:text-blue-300">הזן כתובת אתר לבדיקת סטטוס, מהירות ותקינות SSL</p>
-        </div>
-        
-        <form onSubmit={handleScan} className="flex flex-col md:flex-row gap-4 justify-center items-stretch">
-          <input 
-            type="url" 
-            required
-            placeholder="https://example.com"
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            className="flex-1 px-6 py-4 rounded-2xl border-none ring-1 ring-slate-200 dark:ring-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500 outline-none text-left transition-all"
-            dir="ltr"
-          />
-          <button 
-            disabled={isScanning}
-            className="bg-blue-600 text-white px-10 py-4 rounded-2xl font-bold hover:bg-blue-700 transition-all shadow-lg disabled:bg-blue-400 active:scale-95 whitespace-nowrap"
-          >
-            {isScanning ? 'סורק נתונים...' : 'הרז בדיקת מומחה'}
-          </button>
-        </form>
+    <div className="max-w-xl mx-auto p-6 bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800">
+      <div className="flex gap-2">
+        <input 
+          type="text"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          placeholder="הכנס כתובת אתר..."
+          className="flex-1 px-4 py-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent outline-none"
+        />
+        <button 
+          onClick={handleScan}
+          disabled={loading}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-bold transition disabled:opacity-50"
+        >
+          {loading ? "בודק..." : "סרוק עכשיו"}
+        </button>
+      </div>
 
-        {/* אנימציית טעינה */}
-        {isScanning && (
-          <div className="mt-8 flex flex-col items-center gap-3 animate-pulse">
-            <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-blue-600 dark:text-blue-400 font-medium">מנתח אבטחת SSL וזמני תגובה...</p>
-          </div>
-        )}
-
-        {/* תוצאות הבדיקה */}
-        {result && !isScanning && (
-          <div className="mt-8 p-6 bg-white dark:bg-slate-900 rounded-2xl border-2 border-green-500 shadow-xl animate-in fade-in slide-in-from-bottom-4">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="text-center p-3">
-                <div className="text-[10px] uppercase tracking-wider text-slate-400 mb-1">סטטוס שרת</div>
-                <div className="font-bold text-green-600">ONLINE</div>
-              </div>
-              <div className="text-center p-3 border-r dark:border-slate-800">
-                <div className="text-[10px] uppercase tracking-wider text-slate-400 mb-1">זמן תגובה</div>
-                <div className="font-bold dark:text-white">{result.speed}</div>
-              </div>
-              <div className="text-center p-3 border-r dark:border-slate-800">
-                <div className="text-[10px] uppercase tracking-wider text-slate-400 mb-1">תעודת SSL</div>
-                <div className="font-bold text-blue-500">{result.ssl}</div>
-              </div>
-              <div className="text-center p-3 border-r dark:border-slate-800">
-                <div className="text-[10px] uppercase tracking-wider text-slate-400 mb-1">ציון אבטחה</div>
-                <div className="font-bold text-purple-500">{result.security}</div>
-              </div>
+      {result && result.success && (
+        <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          
+          <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-center">
+            <p className="text-sm text-slate-500 mb-1">סטטוס</p>
+            <div className="text-xl font-bold text-green-600 flex items-center justify-center gap-2">
+              <span className="relative flex h-3 w-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+              </span>
+              מחובר
             </div>
           </div>
-        )}
-      </div>
+
+          <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-center">
+            <p className="text-sm text-slate-500 mb-1">מהירות תגובה</p>
+            <div className={`text-xl font-bold ${getSpeedColor(result.responseTime)}`}>
+              {result.responseTime}ms
+            </div>
+          </div>
+
+          <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-center">
+            <p className="text-sm text-slate-500 mb-1">אבטחה</p>
+            <div className={`text-xl font-bold ${result.isHttps ? "text-blue-600" : "text-orange-500"}`}>
+              {result.isHttps ? "🔒 HTTPS" : "🔓 HTTP"}
+            </div>
+          </div>
+
+        </div>
+      )}
     </div>
   );
 };
