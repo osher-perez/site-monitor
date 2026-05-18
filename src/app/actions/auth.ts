@@ -1,18 +1,13 @@
 "use server";
 
+import clientPromise from "@/lib/mongodb";
+
+// פונקציית ניקוי הטלפון שכבר בדקנו והיא עובדת מעולה
 function cleanPhoneNumber(phone: string): string {
-  // 1. נסיר קודם כל את כל התווים שהם לא מספרים (כולל רווחים ומקפים)
   let digits = phone.replace(/[^0-9]/g, "");
-  
-  // 2. אם המספר מתחיל ב-972 והוא באורך של מספר ישראלי עם קידומת (למשל 972050...)
-  // נוריד את ה-0 המיותר אחרי ה-972
   if (digits.startsWith("9720")) {
     digits = "972" + digits.slice(4);
   }
-  
-  // 3. אם המספר מתחיל ב-05, נהפוך אותו לפורמט ישראלי תקני (למשל 050644843)
-  // (אפשר גם להוסיף לו +972 באופן אוטומטי אם תרצה בעתיד בשביל מערכת ה-SMS)
-  
   return digits;
 }
 
@@ -24,30 +19,55 @@ export async function registerUserAction(formData: {
   marketingConsent: boolean;
 }) {
   try {
-    // הניקוי האמיתי קורה כאן
+    // 1. ניקוי הנתונים (ה"מכונת כביסה" שלנו)
     const cleanPhone = cleanPhoneNumber(formData.phone);
     const cleanEmail = formData.email.trim().toLowerCase();
     const cleanUrl = formData.initialUrl.trim();
 
+    // בדיקת תקינות בסיסית
     if (!formData.name || !cleanEmail || !cleanPhone || !cleanUrl) {
       return { success: false, error: "כל השדות הם חובה." };
     }
 
-    console.log("\n=== שרת: נתונים סופיים לאחר ניקוי מלא ===");
-    console.log("👤 שם:", formData.name);
-    console.log("📧 מייל סופי (קטן):", cleanEmail);
-    console.log("📱 טלפון סופי (רק מספרים):", cleanPhone);
-    console.log("🌐 URL סופי:", cleanUrl);
-    console.log("📢 אישור דיוור:", formData.marketingConsent);
-    console.log("=========================================\n");
+    // 2. חיבור פיזי ל-MongoDB Atlas
+    const client = await clientPromise;
+    // כאן אנחנו בוחרים את שם בסיס הנתונים (מומלץ לוודא שזה אותו שם כמו בפייתון)
+    const db = client.db("site_monitor"); 
+
+    // 3. בדיקה: האם המשתמש כבר קיים במערכת?
+    const existingUser = await db.collection("users").findOne({ email: cleanEmail });
+    
+    if (existingUser) {
+      return { success: false, error: "כתובת האימייל הזו כבר רשומה במערכת." };
+    }
+
+    // 4. יצירת המשתמש החדש באוסף 'users'
+    const userResult = await db.collection("users").insertOne({
+      name: formData.name,
+      email: cleanEmail,
+      phone: cleanPhone,
+      marketingConsent: formData.marketingConsent,
+      role: "user", // הגדרה אוטומטית כמשתמש רגיל (ולא אדמין)
+      createdAt: new Date(),
+    });
+
+    // 5. אוטומציה: יצירת האתר הראשון באוסף 'sites' וקישורו ל-ID של המשתמש
+    await db.collection("sites").insertOne({
+      url: cleanUrl,
+      userId: userResult.insertedId, // המפתח הסודי שמקשר את האתר למשתמש הספציפי הזה!
+      status: "pending", // סטטוס ראשוני שהפייתון יוכל לקרוא ולהתחיל לבדוק
+      createdAt: new Date(),
+    });
+
+    console.log(`\n🎉 הצלחה! משתמש חדש ואתר נוצרו ב-MongoDB עבור: ${cleanEmail}\n`);
 
     return { 
       success: true, 
-      message: `הנתונים נקלטו! מייל: ${cleanEmail}, טלפון: ${cleanPhone}` 
+      message: "החשבון נוצר בהצלחה והאתר שלך התווסף לניטור!" 
     };
 
   } catch (error) {
-    console.error("שגיאה ברישום המשתמש:", error);
-    return { success: false, error: "משהו השתבש בתהליך הרישום בשרת." };
+    console.error("שגיאה קריטית בתהליך הרישום בשרת:", error);
+    return { success: false, error: "משהו השתבש במהלך השמירה בבסיס הנתונים." };
   }
 }
