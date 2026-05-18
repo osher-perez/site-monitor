@@ -30,7 +30,7 @@ export default function Home() {
 
   useEffect(() => {
 
-    fetch("http://localhost:8000/list-sites")
+    fetch("http://127.0.0.1:8000/list-sites")
 
       .then((res) => res.json())
 

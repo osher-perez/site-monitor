@@ -18,28 +18,29 @@ load_dotenv()
 
 app = FastAPI()
 
+# הגדרת CORS רחבה ומלאה לפיתוח מקומי
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# --- חיבור ל-DB (מתוקן ומסונכרן עם Next.js) ---
+# --- חיבור ל-DB תקין ומדויק ---
 try:
     MONGO_URI = os.getenv("MONGO_URI", "mongodb://127.0.0.1:27017")
     client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
     
-    # שינוי חשוב: שינינו ל- site-monitor עם מקף, בדיוק כמו ב-Next.js!
-    db = client.get_database("site-monitor") 
+    # השם המדויק מהתמונה!
+    db = client.get_database("site_monitor") 
     
     sites_collection = db.sites
     checks_collection = db.checks
     client.server_info() 
-    logger.info("✅ Connected to MongoDB successfully (site-monitor)")
+    logger.info("✅ Connected to MongoDB successfully (site_monitor)")
 except Exception as e:
     logger.error(f"❌ Could not connect to MongoDB: {e}")
-# ---------------------------------------
 
 # פונקציית עזר לביצוע הבדיקה בפועל ושמירה ל-DB
 def run_and_save_check(site_document):
