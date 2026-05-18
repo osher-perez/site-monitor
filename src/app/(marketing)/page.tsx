@@ -7,8 +7,10 @@ export default function MarketingHomePage() {
     <div className="min-h-screen bg-white dark:bg-slate-950 transition-colors duration-500">
       <div className="py-20 px-4">
         <div className="max-w-6xl mx-auto text-center">
-          
-         <RegisterForm />
+          <HeroSection />
+          <FeaturesSection />
+          <PricingSection />
+          <RegisterForm />
           {/* כאן תוכל להוסיף בעתיד בקלות: <TestimonialsSection /> או <FAQSection /> */}
           
 
