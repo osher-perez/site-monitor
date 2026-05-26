@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pymongo import MongoClient
 from dotenv import load_dotenv
 from datetime import datetime
-# מייבאים כלי להרצת משימות ברקע מתוך FastAPI
+from backend.auth import router as auth_router
 from fastapi_utils.tasks import repeat_every 
 
 # הגדרת לוגים
@@ -27,6 +27,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth_router)
 # --- חיבור ל-DB תקין ומדויק ---
 try:
     MONGO_URI = os.getenv("MONGO_URI", "mongodb://127.0.0.1:27017")
@@ -53,10 +54,16 @@ def run_and_save_check(site_document):
         response_ms = round((time.time() - start_time) * 1000)
         status = "UP" if response.status_code == 200 else "DOWN"
         
+        # וידוא שה-ID מומר ל-ObjectId של מונגו לצורך השילוב ב-DB, או נשמר כטקסט נקי
+        from bson import ObjectId
+        site_id = site_document["_id"]
+        if isinstance(site_id, str):
+            site_id = ObjectId(site_id)
+
         # 1. יצירת לוג בדיקה חדש באוסף checks
         check_entry = {
             "url": url,
-            "siteId": site_document["_id"], # מקשרים את הבדיקה ישירות ל-ID של האתר
+            "siteId": site_id, # מקשרים את הבדיקה ישירות ל-ID של האתר
             "status": status,
             "response_time": response_ms,
             "timestamp": datetime.utcnow()
@@ -65,16 +72,24 @@ def run_and_save_check(site_document):
         
         # 2. עדכון הסטטוס האחרון במסמך של האתר באוסף sites
         sites_collection.update_one(
-            {"_id": site_document["_id"]}, 
+            {"_id": site_id}, 
             {"$set": {"status": status, "lastCheck": datetime.utcnow()}}
         )
         logger.info(f"✨ Auto-check completed for {url}: {status} ({response_ms}ms)")
     except Exception as e:
         logger.error(f"💥 Failed checking {url}: {str(e)}")
-        sites_collection.update_one(
-            {"_id": site_document["_id"]}, 
-            {"$set": {"status": "DOWN", "lastCheck": datetime.utcnow()}}
-        )
+        try:
+            from bson import ObjectId
+            site_id = site_document["_id"]
+            if isinstance(site_id, str):
+                site_id = ObjectId(site_id)
+                
+            sites_collection.update_one(
+                {"_id": site_id}, 
+                {"$set": {"status": "DOWN", "lastCheck": datetime.utcnow()}}
+            )
+        except Exception as inner_e:
+            logger.error(f"❌ Could not update DOWN status in DB: {inner_e}")
 
 # --- משימה אוטומטית: רצה בכל שעה עגולה (3600 שניות) ---
 @app.on_event("startup")
@@ -82,7 +97,6 @@ def run_and_save_check(site_document):
 def hourly_monitor_task():
     logger.info("⏰ Hourly monitor task triggered!")
     try:
-        # מושכים את כל האתרים שקיימים בבסיס הנתונים (אלו שהגיעו מ-Next.js!)
         all_sites = list(sites_collection.find({}))
         logger.info(f"📋 Found {len(all_sites)} sites to check.")
         
@@ -92,7 +106,7 @@ def hourly_monitor_task():
     except Exception as e:
         logger.error(f"❌ Error in hourly monitor task: {e}")
 
-# ה-Route הקיים שלך למקרה שמישהו עדיין קורא לו ידנית
+# ה-Route לבדיקת אתר בודד ידנית
 @app.get("/check")
 def check_site(url: str):
     site = sites_collection.find_one({"url": url})
@@ -101,15 +115,22 @@ def check_site(url: str):
     run_and_save_check(site)
     return {"status": "SUCCESS", "message": f"Checked {url}"}
 
+# ה-Route המרכזי שמחזיר את הרשימה ל-Next.js
 @app.get("/list-sites")
 def list_sites():
-    # מחזיר את רשימת האתרים כולל הסטטוסים העדכניים שלהם
-    sites = list(sites_collection.find({}))
-    for s in sites:
-        s["_id"] = str(s["_id"])
-        if "userId" in s:
-            s["userId"] = str(s["userId"])
-    return sites
+    try:
+        sites = list(sites_collection.find({}))
+        for s in sites:
+            # המרה קריטית של ה-ID של האתר לטקסט פשוט כדי שלא ישבור את ה-JSON של FastAPI
+            s["_id"] = str(s["_id"])
+            if "userId" in s and s["userId"]:
+                s["userId"] = str(s["userId"])
+            if "lastCheck" in s and s["lastCheck"]:
+                s["lastCheck"] = s["lastCheck"].isoformat() if hasattr(s["lastCheck"], "isoformat") else str(s["lastCheck"])
+        return sites
+    except Exception as e:
+        logger.error(f"❌ Error in list_sites endpoint: {e}")
+        return {"status": "ERROR", "detail": str(e)}
 
 if __name__ == "__main__":
     import uvicorn

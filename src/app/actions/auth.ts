@@ -1,7 +1,5 @@
 "use server";
 
-import clientPromise from "@/lib/mongodb";
-
 // פונקציית ניקוי הטלפון שכבר בדקנו והיא עובדת מעולה
 function cleanPhoneNumber(phone: string): string {
   let digits = phone.replace(/[^0-9]/g, "");
@@ -11,63 +9,65 @@ function cleanPhoneNumber(phone: string): string {
   return digits;
 }
 
-export async function registerUserAction(formData: {
-  name: string;
-  email: string;
-  phone: string;
-  initialUrl: string;
-  marketingConsent: boolean;
-}) {
+// 1. פונקציית הרשמה - שולחת את הנתונים לשרת הפייתון שיצפין וישמור
+export async function registerUserAction(formData: any) {
   try {
-    // 1. ניקוי הנתונים (ה"מכונת כביסה" שלנו)
+    // ניקוי הנתונים לפני השליחה
     const cleanPhone = cleanPhoneNumber(formData.phone);
     const cleanEmail = formData.email.trim().toLowerCase();
-    const cleanUrl = formData.initialUrl.trim();
 
-    // בדיקת תקינות בסיסית
-    if (!formData.name || !cleanEmail || !cleanPhone || !cleanUrl) {
-      return { success: false, error: "כל השדות הם חובה." };
-    }
-
-    // 2. חיבור פיזי ל-MongoDB Atlas
-    const client = await clientPromise;
-    // כאן אנחנו בוחרים את שם בסיס הנתונים (מומלץ לוודא שזה אותו שם כמו בפייתון)
-    const db = client.db("site_monitor"); 
-
-    // 3. בדיקה: האם המשתמש כבר קיים במערכת?
-    const existingUser = await db.collection("users").findOne({ email: cleanEmail });
-    
-    if (existingUser) {
-      return { success: false, error: "כתובת האימייל הזו כבר רשומה במערכת." };
-    }
-
-    // 4. יצירת המשתמש החדש באוסף 'users'
-    const userResult = await db.collection("users").insertOne({
-      name: formData.name,
-      email: cleanEmail,
-      phone: cleanPhone,
-      marketingConsent: formData.marketingConsent,
-      role: "user", // הגדרה אוטומטית כמשתמש רגיל (ולא אדמין)
-      createdAt: new Date(),
+    // קריאה לגשר המאובטח בשרת הפייתון
+    const response = await fetch("http://localhost:8000/auth/register", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name: formData.name.trim(),
+        email: cleanEmail,
+        phone: cleanPhone,
+        password: formData.password, // כאן אנחנו מעבירים את הסיסמה לפייתון שיצפין אותה!
+        initialUrl: formData.initialUrl.trim(),
+      }),
     });
 
-    // 5. אוטומציה: יצירת האתר הראשון באוסף 'sites' וקישורו ל-ID של המשתמש
-    await db.collection("sites").insertOne({
-      url: cleanUrl,
-      userId: userResult.insertedId, // המפתח הסודי שמקשר את האתר למשתמש הספציפי הזה!
-      status: "pending", // סטטוס ראשוני שהפייתון יוכל לקרוא ולהתחיל לבדוק
-      createdAt: new Date(),
-    });
+    const data = await response.json();
 
-    console.log(`\n🎉 הצלחה! משתמש חדש ואתר נוצרו ב-MongoDB עבור: ${cleanEmail}\n`);
+    if (!response.ok) {
+      return { success: false, error: data.detail || "שגיאה בתהליך ההרשמה מהשרת" };
+    }
 
     return { 
       success: true, 
-      message: "החשבון נוצר בהצלחה והאתר שלך התווסף לניטור!" 
+      message: "החשבון נוצר בהצלחה והאתר הראשון נוסף לניטור!" 
     };
 
+  } catch (error: any) {
+    console.error("Registration Action Error:", error);
+    return { success: false, error: "לא ניתן היה ליצור קשר עם שרת הפיתוח בפייתון" };
+  }
+}
+
+// 2. פונקציית התחברות - בודקת מול שרת הפייתון שהסיסמה נכונה
+export async function loginUserAction(formData: any) {
+  try {
+    const response = await fetch("http://localhost:8000/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: formData.email.trim().toLowerCase(),
+        password: formData.password,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return { success: false, error: data.detail || "שגיאה בתהליך ההתחברות" };
+    }
+
+    return { success: true, message: data.message };
   } catch (error) {
-    console.error("שגיאה קריטית בתהליך הרישום בשרת:", error);
-    return { success: false, error: "משהו השתבש במהלך השמירה בבסיס הנתונים." };
+    return { success: false, error: "לא ניתן היה ליצור קשר עם שרת הפיתוח" };
   }
 }
