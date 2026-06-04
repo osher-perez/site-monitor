@@ -1,6 +1,8 @@
 "use server";
 
-// פונקציית ניקוי הטלפון שכבר בדקנו והיא עובדת מעולה
+import { cookies } from "next/headers";
+
+// פונקציית ניקוי הטלפון
 function cleanPhoneNumber(phone: string): string {
   let digits = phone.replace(/[^0-9]/g, "");
   if (digits.startsWith("9720")) {
@@ -9,8 +11,50 @@ function cleanPhoneNumber(phone: string): string {
   return digits;
 }
 
+// הגדרת המבנה של נתוני טופס ההרשמה עבור TypeScript
+interface RegisterFormData {
+  name: string;
+  email: string;
+  phone: string;
+  password: string;
+  initialUrl: string;
+}
+
+// הגדרת המבנה של נתוני טופס ההתחברות עבור TypeScript
+interface LoginFormData {
+  email: string;
+  password: string;
+}
+
+// ========================================================
+// צינור חדש: בדיקה דינמית אם המייל קיים במערכת (בזמן אמת)
+// ========================================================
+export async function checkEmailAction(email: string) {
+  try {
+    const cleanEmail = email.trim().toLowerCase();
+    
+    // קריאה לפייתון לבדיקת קיום המשתמש
+    const response = await fetch(`http://localhost:8000/auth/check-email?email=${encodeURIComponent(cleanEmail)}`, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return { success: false, error: data.detail || "שגיאה בבדיקת כתובת האימייל" };
+    }
+
+    // השרת בפייתון יחזיר למשל: { exists: true/false }
+    return { success: true, exists: data.exists };
+  } catch (error) {
+    console.error("Check Email Action Error:", error);
+    return { success: false, error: "לא ניתן היה ליצור קשר עם שרת הפיתוח" };
+  }
+}
+
 // 1. פונקציית הרשמה - שולחת את הנתונים לשרת הפייתון שיצפין וישמור
-export async function registerUserAction(formData: any) {
+export async function registerUserAction(formData: RegisterFormData) {
   try {
     // ניקוי הנתונים לפני השליחה
     const cleanPhone = cleanPhoneNumber(formData.phone);
@@ -26,7 +70,7 @@ export async function registerUserAction(formData: any) {
         name: formData.name.trim(),
         email: cleanEmail,
         phone: cleanPhone,
-        password: formData.password, // כאן אנחנו מעבירים את הסיסמה לפייתון שיצפין אותה!
+        password: formData.password, // מועבר מוצפן בפייתון
         initialUrl: formData.initialUrl.trim(),
       }),
     });
@@ -34,22 +78,36 @@ export async function registerUserAction(formData: any) {
     const data = await response.json();
 
     if (!response.ok) {
-      return { success: false, error: data.detail || "שגיאה בתהליך ההרשמה מהשרת" };
+      return {
+        success: false,
+        error: data.detail || "שגיאה בתהליך ההרשמה מהשרת",
+      };
     }
 
-    return { 
-      success: true, 
-      message: "החשבון נוצר בהצלחה והאתר הראשון נוסף לניטור!" 
-    };
+    // שומרים את ה-userId בקוקיז מיד עם ההרשמה כדי שהמשתמש ייכנס אוטומטית
+    const cookieStore = await cookies();
+    cookieStore.set("userId", data.userId, {
+      httpOnly: false, // שינוי ל-false כדי שקומפוננטות הלקוח (Client Components) יוכלו לקרוא את ה-ID בדשבורד!
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 60 * 60 * 24 * 7, // תקף לשבוע שלם
+      path: "/",
+    });
 
-  } catch (error: any) {
+    return {
+      success: true,
+      message: "החשבון נוצר בהצלחה והאתר הראשון נוסף לניטור!",
+    };
+  } catch (error) {
     console.error("Registration Action Error:", error);
-    return { success: false, error: "לא ניתן היה ליצור קשר עם שרת הפיתוח בפייתון" };
+    return {
+      success: false,
+      error: "לא ניתן היה ליצור קשר עם שרת הפיתוח בפייתון",
+    };
   }
 }
 
 // 2. פונקציית התחברות - בודקת מול שרת הפייתון שהסיסמה נכונה
-export async function loginUserAction(formData: any) {
+export async function loginUserAction(formData: LoginFormData) {
   try {
     const response = await fetch("http://localhost:8000/auth/login", {
       method: "POST",
@@ -63,11 +121,21 @@ export async function loginUserAction(formData: any) {
     const data = await response.json();
 
     if (!response.ok) {
-      return { success: false, error: data.detail || "שגיאה בתהליך ההתחברות" };
+      return { success: false, error: data.detail || "אימייל או סיסמה שגויים" };
     }
+
+    // שמירת ה-userId בקוקיז
+    const cookieStore = await cookies();
+    cookieStore.set("userId", data.userId, {
+      httpOnly: false, // שינוי ל-false בשביל קריאה חלקה מה-Client Side
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 60 * 60 * 24 * 7, // שומר על החיבור למשך שבוע
+      path: "/",
+    });
 
     return { success: true, message: data.message };
   } catch (error) {
+    console.error("Login Action Error:", error);
     return { success: false, error: "לא ניתן היה ליצור קשר עם שרת הפיתוח" };
   }
 }

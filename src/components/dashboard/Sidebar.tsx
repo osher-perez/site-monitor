@@ -1,46 +1,87 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 
 export const Sidebar = () => {
+  const pathname = usePathname();
+  const router = useRouter();
+
+  // פונקציית התנתקות מהירה ומאובטחת בצד הלקוח
+  const handleLogout = () => {
+    // מחיקת ה-cookie של המשתמש על ידי קביעת תוקף פג תוקף
+    document.cookie = "userId=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+    
+    // העברה מיידית לדף הבית החיצוני
+    router.push("/");
+    router.refresh();
+  };
+
+  // פונקציית עזר לבדיקה איזה לינק פעיל כרגע כדי לצבוע אותו בכחול
+  const isActive = (path: string) => pathname === path;
+
   return (
-    <aside className="w-64 bg-gray-900 text-white p-6 hidden md:block shrink-0 min-h-screen flex flex-col">
-      <div className="font-bold text-xl mb-10 text-blue-400">
-        SiteMonitor Admin
+    <aside className="w-64 bg-white border-l border-gray-100 p-6 hidden md:flex flex-col shrink-0 min-h-screen shadow-sm text-right font-sans" dir="rtl">
+      
+      {/* לוגו הדשבורד - מותאם לשפה העיצובית הבהירה */}
+      <div className="mb-10 px-2">
+        <Link href="/dashboard" className="text-xl font-black tracking-tighter uppercase text-blue-600 hover:opacity-80 transition">
+          Site<span className="text-gray-500 font-medium">Monitor</span>
+          <span className="text-[10px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded-md mr-1.5 font-bold align-middle">פנל לניהול</span>
+        </Link>
       </div>
 
-      <nav className="space-y-4 font-medium flex-grow">
+      {/* תפריט הניווט המאוחד והנקי - ללא כפילויות וללא לינקים שבורים */}
+      <nav className="space-y-1.5 flex-grow">
+        
+        {/* 1. לינק סקירה כללית (דף הבית של הדשבורד) */}
         <Link
           href="/dashboard"
-          className="block p-3 rounded-xl hover:bg-gray-800 transition-colors border border-transparent hover:border-gray-700"
+          className={`flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-wide transition-all border ${
+            isActive("/dashboard")
+              ? "bg-blue-50 border-blue-100 text-blue-600"
+              : "border-transparent text-gray-500 hover:bg-gray-50 hover:text-gray-900"
+          }`}
         >
-          🏠 סקירה כללית
+          <span className="text-sm">🏠</span>
+          סקירה כללית
         </Link>
 
-        {/* הלינק המרכזי שמוביל לרשימת האתרים לניהול */}
+        {/* 2. לינק ניהול אתרים מנוטרים (טבלה/רשימה) */}
         <Link
           href="/dashboard/sites"
-          className="block p-3 rounded-xl hover:bg-gray-800 transition-colors border border-transparent hover:border-gray-700 text-blue-400"
+          className={`flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-wide transition-all border ${
+            isActive("/dashboard/sites")
+              ? "bg-blue-50 border-blue-100 text-blue-600"
+              : "border-transparent text-gray-500 hover:bg-gray-50 hover:text-gray-900"
+          }`}
         >
-          🌐 ניהול אתרים מנוטרים
+          <span className="text-sm">🌐</span>
+          ניהול אתרים
         </Link>
 
-        {/* מחקנו את הלינק לדף הבית הציבורי - המנהל נמצא כבר בתוך הבית שלו */}
-      </nav>
-      <nav className="space-y-4">
-        {/* מוביל לדף הרשימה/הטבלה */}
-        <Link href="/dashboard/sites" className="...">
-          {" "}
-          🌐 ניהול אתרים{" "}
+        {/* 3. לינק ייעודי ומעוצב להוספת אתר חדש לניטור */}
+        <Link
+          href="/dashboard/sites/add"
+          className={`flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-wide transition-all border ${
+            isActive("/dashboard/sites/add")
+              ? "bg-blue-50 border-blue-100 text-blue-600"
+              : "border-transparent text-gray-500 hover:bg-gray-50 hover:text-gray-900"
+          }`}
+        >
+          <span className="text-sm">➕</span>
+          הוספת אתר חדש
         </Link>
 
-        {/* מוביל לדף הטופס שהעברנו עכשיו */}
-        <Link href="/dashboard/sites/add" className="...">
-          {" "}
-          ➕ הוספת אתר{" "}
-        </Link>
       </nav>
-      <div className="mt-auto pt-10 border-t border-gray-800">
-        <button className="flex items-center gap-2 text-red-400 text-sm hover:text-red-300 transition-colors w-full p-2">
-          <span>🔒</span>
+
+      {/* חלק תחתון - יציאה מאובטחת מן המערכת */}
+      <div className="pt-4 border-t border-gray-100">
+        <button
+          onClick={handleLogout}
+          className="flex items-center gap-3 w-full px-4 py-3 text-xs font-bold uppercase tracking-wide text-red-500 hover:bg-red-50 rounded-xl transition-all border border-transparent hover:border-red-100"
+        >
+          <span className="text-sm">🔒</span>
           יציאה מאובטחת
         </button>
       </div>

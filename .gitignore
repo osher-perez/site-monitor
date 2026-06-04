@@ -1,6 +1,4 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
-# dependencies
+# dependencies (Node.js)
 /node_modules
 /.pnp
 .pnp.*
@@ -9,6 +7,20 @@
 !.yarn/plugins
 !.yarn/releases
 !.yarn/versions
+
+# Python Virtual Environments (חשוב מאוד - מונע עליית אלפי קבצי שרת לגיט)
+.venv/
+venv/
+ENV/
+env/
+
+# Python caching & bytecode
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.ipynb_checkpoints/
 
 # testing
 /coverage
@@ -20,22 +32,33 @@
 # production
 /build
 
+# IDEs and editors (קבצי הגדרות אישיות של המחשב שלך)
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+
 # misc
 .DS_Store
 *.pem
+notes.txt
 
-# debug
+# debug logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env*
-
-notes.txt
-**/__pycache__/
-.pyc*
+# env files - חסימה מוחלטת של קבצי סיסמאות ומפתחות!
+.env
+.env.local
+.env.development
+.env.production
+.env.development.local
+.env.local.errors
 
 # vercel
 .vercel
