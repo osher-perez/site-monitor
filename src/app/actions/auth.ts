@@ -84,17 +84,27 @@ export async function registerUserAction(formData: RegisterFormData) {
       };
     }
 
-    // שומרים את ה-userId בקוקיז מיד עם ההרשמה כדי שהמשתמש ייכנס אוטומטית
     const cookieStore = await cookies();
+    
+    // שומרים את ה-userId בקוקיז מיד עם ההרשמה
     cookieStore.set("userId", data.userId, {
-      httpOnly: false, // שינוי ל-false כדי שקומפוננטות הלקוח (Client Components) יוכלו לקרוא את ה-ID בדשבורד!
+      httpOnly: false, // מאפשר לקומפוננטות לקוח לקרוא את ה-ID בדשבורד
       secure: process.env.NODE_ENV === "production",
-      maxAge: 60 * 60 * 24 * 7, // תקף לשבוע שלם
+      maxAge: 60 * 60 * 24 * 7, // תקף לשבוע
+      path: "/",
+    });
+
+    // שומרים את סטטוס האדמין בעוגייה כדי שהמערכת תדע לאבטח את המעברים בין הדפים
+    cookieStore.set("isAdmin", String(data.isAdmin || false), {
+      httpOnly: false, 
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 60 * 60 * 24 * 7,
       path: "/",
     });
 
     return {
       success: true,
+      isAdmin: data.isAdmin || false,
       message: "החשבון נוצר בהצלחה והאתר הראשון נוסף לניטור!",
     };
   } catch (error) {
@@ -124,16 +134,29 @@ export async function loginUserAction(formData: LoginFormData) {
       return { success: false, error: data.detail || "אימייל או סיסמה שגויים" };
     }
 
-    // שמירת ה-userId בקוקיז
     const cookieStore = await cookies();
+    
+    // שמירת ה-userId בקוקיז
     cookieStore.set("userId", data.userId, {
-      httpOnly: false, // שינוי ל-false בשביל קריאה חלקה מה-Client Side
+      httpOnly: false,
       secure: process.env.NODE_ENV === "production",
-      maxAge: 60 * 60 * 24 * 7, // שומר על החיבור למשך שבוע
+      maxAge: 60 * 60 * 24 * 7,
       path: "/",
     });
 
-    return { success: true, message: data.message };
+    // שמירת ה-isAdmin בקוקיז
+    cookieStore.set("isAdmin", String(data.isAdmin || false), {
+      httpOnly: false,
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 60 * 60 * 24 * 7,
+      path: "/",
+    });
+
+    return { 
+      success: true, 
+      isAdmin: data.isAdmin || false, 
+      message: data.message 
+    };
   } catch (error) {
     console.error("Login Action Error:", error);
     return { success: false, error: "לא ניתן היה ליצור קשר עם שרת הפיתוח" };

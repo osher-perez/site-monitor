@@ -9,7 +9,7 @@ interface Site {
   last_checked: string;
 }
 
-// פונקציית עזר קטנה לשליפת קוקי בצד הלקוח (Client Side)
+// פונקציית עזר לשליפת קוקי בצד הלקוח
 function getCookie(name: string): string | null {
   if (typeof document === "undefined") return null;
   const value = `; ${document.cookie}`;
@@ -23,17 +23,22 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  // הגדרת מגבלת האתרים לחשבון
+  const MAX_SITES_LIMIT = 3; 
+
   useEffect(() => {
-    // שליפת ה-userId מהקוקיז שה-Server Action של הלוגין שתל
     const userId = getCookie("userId");
 
+    // אם אין מזהה משתמש - נעדכן את השגיאה והטעינה בפעימה אחת אסינכרונית קלה
     if (!userId) {
-      setErrorMsg("מזהה משתמש לא נמצא. נא להתחבר מחדש.");
-      setLoading(false);
+      setTimeout(() => {
+        setErrorMsg("מזהה משתמש לא נמצא. נא להתחבר מחדש.");
+        setLoading(false);
+      }, 0);
       return;
     }
 
-    // התיקון הקריטי: שליחת ה-userId לפייתון כדי לקבל אך ורק את האתרים של המשתמש הנוכחי!
+    // שליחת ה-userId לפייתון לקבלת האתרים שלו
     fetch(`http://localhost:8000/list-sites?user_id=${userId}`)
       .then((res) => {
         if (!res.ok) throw new Error("שגיאה בקבלת הנתונים מהשרת");
@@ -50,22 +55,34 @@ export default function DashboardPage() {
       });
   }, []);
 
+  // בדיקה האם המשתמש הגיע למגבלת האתרים שלו
+  const isLimitReached = sites.length >= MAX_SITES_LIMIT;
+
   return (
-    <div className="max-w-6xl mx-auto text-white">
+    <div className="max-w-6xl mx-auto text-white" dir="rtl">
       {/* כותרת וכפתור הוספה */}
       <div className="flex justify-between items-center mb-10">
         <div>
-          <h1 className="text-3xl font-black tracking-tight uppercase text-white mb-1">האתרים שלי</h1>
-          <p className="text-xs text-zinc-500 font-mono">ניהול וסטטיסטיקות בזמן אמת</p>
+          <h1 className="text-3xl font-black tracking-tight text-white mb-1">האתרים שלי</h1>
+          <p className="text-xs text-zinc-500 font-mono">
+            ניהול וסטטיסטיקות בזמן אמת ({sites.length}/{MAX_SITES_LIMIT} אתרים בשימוש)
+          </p>
         </div>
 
-        {/* התיקון: ניתוב מאובטח לנתיב הדשבורד הפנימי */}
-        <Link
-          href="/dashboard/add-site"
-          className="bg-zinc-100 hover:bg-white text-black px-5 py-2.5 rounded-xl font-bold text-sm transition-all shadow-lg active:scale-95"
-        >
-          + הוסף אתר לניטור
-        </Link>
+        {isLimitReached ? (
+          <div className="text-left">
+            <span className="bg-amber-500/10 text-amber-400 border border-amber-500/20 px-4 py-2.5 rounded-xl font-bold text-xs">
+              🔒 הגעת למגבלת החבילה ({MAX_SITES_LIMIT} אתרים)
+            </span>
+          </div>
+        ) : (
+          <Link
+            href="/dashboard/sites/add"
+            className="bg-zinc-100 hover:bg-white text-black px-5 py-2.5 rounded-xl font-bold text-sm transition-all shadow-lg active:scale-95"
+          >
+            + הוסף אתר לניטור
+          </Link>
+        )}
       </div>
 
       {/* מצב טעינה */}
@@ -84,24 +101,25 @@ export default function DashboardPage() {
           <p className="text-zinc-400 text-sm italic mb-4">
             אין עדיין אתרים תחת החשבון שלך. הגיע הזמן להוסיף את האתר הראשון!
           </p>
+          <Link href="/dashboard/sites/add" className="text-blue-400 hover:underline text-sm font-bold">
+            לחץ כאן כדי להוסיף אתר ראשון
+          </Link>
         </div>
       ) : (
         /* רשימת האתרים (גריד כרטיסים) */
         <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
           {sites.map((site, index) => (
             <Link
-              href={`/site/${encodeURIComponent(site.url)}`}
+              href={`/dashboard/sites/view?url=${encodeURIComponent(site.url)}`}
               key={index}
               className="group block"
             >
-              {/* כרטיס אתר מעודכן לעיצוב הכהה היוקרתי (Zinc-950) */}
               <div className="bg-zinc-950 p-6 rounded-2xl border border-zinc-900 shadow-xl group-hover:border-zinc-800 group-hover:-translate-y-1 transition-all duration-300 cursor-pointer">
                 <div className="flex justify-between items-start mb-6 gap-3">
                   <h3 className="font-mono text-base font-bold truncate w-3/4 text-zinc-100 tracking-tight group-hover:text-blue-400 transition-colors">
                     {site.url.replace("https://", "").replace("http://", "")}
                   </h3>
 
-                  {/* תג סטטוס מעוצב מחדש */}
                   <span
                     className={`px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wider ${
                       site.status === "UP"
@@ -113,7 +131,6 @@ export default function DashboardPage() {
                   </span>
                 </div>
 
-                {/* פס הפרדה תחתון וזמן בדיקה */}
                 <div className="border-t border-zinc-900 pt-4 flex justify-between items-center text-zinc-500 text-xs font-medium">
                   <span>בדיקה אחרונה:</span>
                   <span className="text-zinc-300 font-mono">

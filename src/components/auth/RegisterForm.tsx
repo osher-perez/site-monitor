@@ -63,14 +63,24 @@ export const RegisterForm = () => {
     if (step === "register") {
       const result = await registerUserAction(formData);
       if (result.success) {
-        router.push("/dashboard"); 
+        // ניתוב חכם על בסיס הרשאות אדמין / לקוח
+        if (result.isAdmin) {
+          router.push("/dashboard/admin");
+        } else {
+          router.push("/dashboard");
+        }
       } else {
         setErrorMessage(result.error || "שגיאה בתהליך ההרשמה");
       }
     } else if (step === "login") {
       const result = await loginUserAction(formData);
       if (result.success) {
-        router.push("/dashboard"); 
+        // ניתוב חכם על בסיס הרשאות אדמין / לקוח
+        if (result.isAdmin) {
+          router.push("/dashboard/admin");
+        } else {
+          router.push("/dashboard");
+        }
       } else {
         setErrorMessage(result.error || "הסיסמה שהוזנה אינה נכונה");
       }
@@ -225,7 +235,7 @@ export const RegisterForm = () => {
                 className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 mt-0.5"
               />
               <label htmlFor="marketingConsent" className="text-[11px] leading-normal text-gray-400 cursor-pointer select-none">
-                אני מאשר קבלת עדכוני מערכת, בדיקות מהירות, דוחות חודשיים והתראות קריטיות על האתרים שלי.
+                I agree to receive system updates, rapid speed checks, monthly uptime statistics and critical server alerts for my monitored URLs.
               </label>
             </div>
           )}

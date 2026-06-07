@@ -46,6 +46,8 @@ export default function AddSitePage() {
           ? "✅ האתר נבדק, נמצא תקין ונוסף בהצלחה לניטור!"
           : "⚠️ האתר נוסף לניטור, אך נראה שהוא כרגע למטה או חסום."
       );
+      
+      // ניקוי השדה רק במידה והשמירה עברה בהצלחה
       setUrl("");
     } catch (err) {
       console.error("Add Site Error:", err);
@@ -56,7 +58,7 @@ export default function AddSitePage() {
   };
 
   return (
-    <div className="max-w-xl mx-auto text-white">
+    <div className="max-w-xl mx-auto text-white" dir="rtl">
       {/* כפתור חזרה לדשבורד */}
       <Link href="/dashboard" className="text-zinc-500 hover:text-white mb-6 inline-block text-sm transition-all">
         ← חזרה ל-Dashboard
@@ -80,7 +82,7 @@ export default function AddSitePage() {
               type="url"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
-              className="w-full p-3.5 bg-black border border-zinc-900 rounded-xl text-white font-mono text-sm placeholder-zinc-700 focus:border-zinc-700 focus:outline-none transition-all"
+              className="w-full p-3.5 bg-black border border-zinc-900 rounded-xl text-white font-mono text-sm placeholder-zinc-700 focus:border-zinc-700 focus:outline-none transition-all text-left"
               placeholder="https://example.com"
               required
               disabled={isLoading}

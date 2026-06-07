@@ -27,14 +27,14 @@ export const Sidebar = () => {
       <div className="mb-10 px-2">
         <Link href="/dashboard" className="text-xl font-black tracking-tighter uppercase text-blue-600 hover:opacity-80 transition">
           Site<span className="text-gray-500 font-medium">Monitor</span>
-          <span className="text-[10px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded-md mr-1.5 font-bold align-middle">פנל לניהול</span>
+          <span className="text-[10px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded-md mr-1.5 font-bold align-middle">פנל ניהול</span>
         </Link>
       </div>
 
       {/* תפריט הניווט המאוחד והנקי - ללא כפילויות וללא לינקים שבורים */}
       <nav className="space-y-1.5 flex-grow">
         
-        {/* 1. לינק סקירה כללית (דף הבית של הדשבורד) */}
+        {/* 1. לינק סקירה כללית (דף הבית של הדשבורד עם האתרים) */}
         <Link
           href="/dashboard"
           className={`flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-wide transition-all border ${
@@ -44,33 +44,33 @@ export const Sidebar = () => {
           }`}
         >
           <span className="text-sm">🏠</span>
-          סקירה כללית
+          האתרים שלי
         </Link>
 
-        {/* 2. לינק ניהול אתרים מנוטרים (טבלה/רשימה) */}
+        {/* 2. לינק מעודכן ומקוצר להוספת אתר חדש לניטור */}
         <Link
-          href="/dashboard/sites"
+          href="/dashboard/add-site"
           className={`flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-wide transition-all border ${
-            isActive("/dashboard/sites")
-              ? "bg-blue-50 border-blue-100 text-blue-600"
-              : "border-transparent text-gray-500 hover:bg-gray-50 hover:text-gray-900"
-          }`}
-        >
-          <span className="text-sm">🌐</span>
-          ניהול אתרים
-        </Link>
-
-        {/* 3. לינק ייעודי ומעוצב להוספת אתר חדש לניטור */}
-        <Link
-          href="/dashboard/sites/add"
-          className={`flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-wide transition-all border ${
-            isActive("/dashboard/sites/add")
+            isActive("/dashboard/add-site")
               ? "bg-blue-50 border-blue-100 text-blue-600"
               : "border-transparent text-gray-500 hover:bg-gray-50 hover:text-gray-900"
           }`}
         >
           <span className="text-sm">➕</span>
           הוספת אתר חדש
+        </Link>
+
+        {/* 3. לינק ייעודי למנהל המערכת (אדמין) – טבלת הלקוחות הגדולה */}
+        <Link
+          href="/dashboard/admin"
+          className={`flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-wide transition-all border ${
+            isActive("/dashboard/admin")
+              ? "bg-blue-50 border-blue-100 text-blue-600"
+              : "border-transparent text-gray-500 hover:bg-gray-50 hover:text-gray-900"
+          }`}
+        >
+          <span className="text-sm">🛡️</span>
+          ניהול מערכת (Admin)
         </Link>
 
       </nav>

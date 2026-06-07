@@ -76,11 +76,17 @@ def register_user(data: UserRegisterRequest):
 
         hashed_pwd = hash_password(data.password)
 
+        # קביעת הרשאת אדמין אוטומטית למייל שנבחר, וכל השאר לקוחות רגילים
+        is_admin = False
+        if email_clean == "osherp96@gmail.com":
+            is_admin = True
+
         new_user = {
             "name": data.name.strip(),
             "email": email_clean,
             "phone": data.phone.strip(),
             "password": hashed_pwd,
+            "isAdmin": is_admin,                      # שדה ההרשאה הרשמי
             "createdAt": datetime.now(timezone.utc),  # פורמט עדכני ובטוח
         }
 
@@ -102,6 +108,7 @@ def register_user(data: UserRegisterRequest):
             "success": True,
             "message": "User registered successfully and initial site added.",
             "userId": str(user_id),
+            "isAdmin": is_admin
         }
 
     except Exception as e:
@@ -127,11 +134,15 @@ def login_user(data: UserLoginRequest):
                 status_code=400, detail="אימייל או סיסמה שגויים"
             )
 
+        # שליפת שדה ה-isAdmin (ברירת מחדל היא False אם לא קיים במסמכים ישנים)
+        is_admin = user.get("isAdmin", False)
+
         return {
             "success": True,
             "message": "התחברת בהצלחה!",
             "userId": str(user["_id"]),
             "name": user["name"],
+            "isAdmin": is_admin  # החזרת הסטטוס לפרונט כדי לדעת לאן לנתב
         }
     except HTTPException as he:
         raise he

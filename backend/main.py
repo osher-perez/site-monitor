@@ -157,6 +157,44 @@ def list_sites():
         logger.error(f"❌ Error in list_sites endpoint: {e}")
         return {"status": "ERROR", "detail": str(e)}
 
+# Route מיוחד למנהלים - מחזיר את כל הלקוחות וסיכום סטטוס האתרים שלהם
+@app.get("/admin/overview")
+def get_admin_overview():
+    try:
+        # 1. שליפת כל המשתמשים במערכת שאינם אדמינים (כדי שהאדמין לא יראה את עצמו כלקוח)
+        users = list(db.users.find({"isAdmin": {"$ne": True}}))
+        
+        admin_report = []
+
+        for user in users:
+            user_id = user["_id"]
+            
+            # 2. שליפת כל האתרים ששייכים ללקוח הספציפי הזה
+            user_sites = list(sites_collection.find({"userId": user_id}))
+            
+            # 3. ספירת הסטטוסים (UP מול כל השאר כמו DOWN או PENDING)
+            up_count = sum(1 for site in user_sites if site.get("status") == "UP")
+            down_count = sum(1 for site in user_sites if site.get("status") in ["DOWN", "ERROR"])
+            total_sites = len(user_sites)
+
+            # 4. אריזת הנתונים בצורה נקייה עבור ה-Frontend
+            admin_report.append({
+                "userId": str(user_id),
+                "name": user.get("name", "משתמש ללא שם"),
+                "email": user.get("email"),
+                "phone": user.get("phone", "לא הוזן"),
+                "totalSites": total_sites,
+                "upSites": up_count,
+                "downSites": down_count,
+                "createdAt": user.get("createdAt").isoformat() if user.get("createdAt") else None
+            })
+
+        logger.info(f"👑 Admin requested overview. Returning {len(admin_report)} customers.")
+        return admin_report
+
+    except Exception as e:
+        logger.error(f"❌ Error in admin overview endpoint: {e}")
+        return {"status": "ERROR", "detail": str(e)}
 
 if __name__ == "__main__":
     import uvicorn
