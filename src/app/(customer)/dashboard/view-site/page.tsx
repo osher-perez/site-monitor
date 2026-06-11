@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
 interface HistoryLog {
   timestamp: string;
   status: string;
-  response_time: number; // במילישניות
+  response_time: number;
 }
 
 interface SiteStats {
@@ -17,7 +17,6 @@ interface SiteStats {
   history: HistoryLog[];
 }
 
-// פונקציית עזר לשליפת קוקי בצד הלקוח
 function getCookie(name: string): string | null {
   if (typeof document === "undefined") return null;
   const value = `; ${document.cookie}`;
@@ -26,30 +25,50 @@ function getCookie(name: string): string | null {
   return null;
 }
 
-export default function ViewSitePage() {
+function ViewSiteContent() {
   const searchParams = useSearchParams();
-  const siteUrl = searchParams.get("url"); // שליפת ה-URL מכתובת הדפדפן
+  const siteUrl = searchParams.get("url");
+  const viewAsId = searchParams.get("viewAs"); // זיהוי האם אדמין צופה בדף זה
 
   const [stats, setStats] = useState<SiteStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [isImpersonating, setIsImpersonating] = useState(false);
 
   useEffect(() => {
+    // ✅ תיקון אסינכרוני למניעת Cascading Renders במקרה של שגיאת קישור
     if (!siteUrl) {
-      setErrorMsg("❌ שגיאה: כתובת האתר לא צוינה בקישור.");
-      setLoading(false);
+      setTimeout(() => {
+        setErrorMsg("❌ שגיאה: כתובת האתר לא צוינה בקישור.");
+        setLoading(false);
+      }, 0);
       return;
     }
 
-    const userId = getCookie("userId");
-    if (!userId) {
-      setErrorMsg("❌ מזהה משתמש לא נמצא. נא להתחבר מחדש.");
-      setLoading(false);
+    const loggedInUserId = getCookie("userId");
+    const userRole = getCookie("userRole");
+    
+    // קביעת מזהה המשתמש הנכון מול הפייתון בהתאם לרמת האבטחה
+    let targetUserId = loggedInUserId;
+
+    if (viewAsId && (userRole === "admin" || loggedInUserId === "admin")) {
+      targetUserId = viewAsId;
+      // עטיפה אסינכרונית למניעת אזהרות רנדור
+      setTimeout(() => {
+        setIsImpersonating(true);
+      }, 0);
+    }
+
+    if (!targetUserId) {
+      setTimeout(() => {
+        setErrorMsg("❌ מזהה משתמש לא נמצא. נא להתחבר מחדש.");
+        setLoading(false);
+      }, 0);
       return;
     }
 
-    // פנייה לפייתון לקבלת היסטוריית הניטור והסטטיסטיקות של האתר הספציפי
-    fetch(`http://localhost:8000/site-history?url=${encodeURIComponent(siteUrl)}&user_id=${userId}`)
+    // פנייה לפייתון עם ה-targetUserId המוצלב והמאובטח
+    fetch(`http://localhost:8000/site-history?url=${encodeURIComponent(siteUrl)}&user_id=${targetUserId}`)
       .then((res) => {
         if (!res.ok) throw new Error("נכשל בטעינת היסטוריית האתר מהשרת");
         return res.json();
@@ -63,7 +82,10 @@ export default function ViewSitePage() {
         setErrorMsg("לא ניתן ליצור קשר עם שרת הניטור או שהנתונים אינם קיימים.");
         setLoading(false);
       });
-  }, [siteUrl]);
+  }, [siteUrl, viewAsId]);
+
+  // בניית נתיב חזרה חכם ששומר על רצף התמיכה של האדמין
+  const backLink = isImpersonating ? `/dashboard?viewAs=${viewAsId}` : "/dashboard";
 
   if (loading) {
     return (
@@ -76,7 +98,7 @@ export default function ViewSitePage() {
   if (errorMsg || !stats) {
     return (
       <div className="max-w-2xl mx-auto" dir="rtl">
-        <Link href="/dashboard" className="text-gray-400 hover:text-gray-900 mb-6 inline-block text-sm">
+        <Link href={backLink} className="text-gray-400 hover:text-gray-900 mb-6 inline-block text-sm">
           ← חזרה ל-Dashboard
         </Link>
         <div className="bg-red-50 p-6 rounded-2xl text-center border border-red-100">
@@ -89,9 +111,19 @@ export default function ViewSitePage() {
   return (
     <div className="max-w-6xl mx-auto text-gray-900 space-y-8" dir="rtl">
       
+      {/* ⚠️ באנר התראת מצב אדמין */}
+      {isImpersonating && (
+        <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl flex justify-between items-center text-amber-900 text-xs font-bold shadow-sm">
+          <span>👀 פנל ניהול: צפייה באנליטיקה של לקוח מנוהל</span>
+          <Link href={`/dashboard?viewAs=${viewAsId}`} className="bg-amber-600 hover:bg-amber-700 text-white px-3 py-1.5 rounded-xl transition-all">
+            חזרה לדשבורד המנוהל ←
+          </Link>
+        </div>
+      )}
+
       {/* כפתור חזרה וכותרת ראשית */}
       <div>
-        <Link href="/dashboard" className="text-gray-400 hover:text-gray-900 mb-4 inline-block text-sm transition-all">
+        <Link href={backLink} className="text-gray-400 hover:text-gray-900 mb-4 inline-block text-sm transition-all">
           ← חזרה לכל האתרים
         </Link>
         <h1 className="text-2xl font-black text-gray-950 truncate tracking-tight font-mono">
@@ -100,44 +132,39 @@ export default function ViewSitePage() {
         <p className="text-xs text-gray-400 mt-1">אנליטיקה, יציבות וזמני תגובה בזמן אמת</p>
       </div>
 
-      {/* 📊 כרטיסי מונים גדולים (סטטיסטיקה עליונה) */}
+      {/* 📊 כרטיסי מונים גדולים */}
       <div className="grid gap-6 grid-cols-1 sm:grid-cols-2">
-        {/* כרטיס אחוז Uptime */}
         <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between">
           <div>
             <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-1">זמינות האתר (Uptime)</span>
             <span className="text-3xl font-black text-emerald-600 font-mono">{stats.uptime_percentage}%</span>
           </div>
-          <div className="w-12 h-12 rounded-full bg-emerald-50 text-emerald-500 text-xl flex items-center justify-center">🟢</div>
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 font-bold flex items-center justify-center text-sm">✓</div>
         </div>
 
-        {/* כרטיס זמן תגובה ממוצע */}
         <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between">
           <div>
             <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-1">זמן תגובה ממוצע</span>
             <span className="text-3xl font-black text-blue-600 font-mono">{stats.average_response_time} <span className="text-xs font-medium text-gray-400">ms</span></span>
           </div>
-          <div className="w-12 h-12 rounded-full bg-blue-50 text-blue-500 text-xl flex items-center justify-center">⚡</div>
+          <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 font-bold flex items-center justify-center text-sm">⚡</div>
         </div>
       </div>
 
-      {/* 📈 גרף ויזואלי נקי לזמני תגובה (נבנה בעזרת CSS/Tailwind) */}
+      {/* 📈 גרף עמודות */}
       <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
         <h3 className="text-sm font-bold text-gray-900 mb-6">מהירות תגובת שרת בבדיקות האחרונות (במילישניות)</h3>
         
         <div className="h-48 flex items-end justify-between gap-2 pt-6 px-2 border-b border-gray-100 font-mono">
           {stats.history.slice(-10).map((log, index) => {
-            // חישוב אחוז הגובה של העמודה (מקסימום גובה מוגדר ל-2000ms לצורך פרופורציה)
             const heightPercentage = Math.min((log.response_time / 2000) * 100, 100);
             
             return (
               <div key={index} className="flex-1 flex flex-col items-center group relative h-full justify-end">
-                {/* בועת מידע בריחופ עכבר */}
                 <div className="absolute bottom-full mb-2 bg-gray-900 text-white text-[10px] py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 whitespace-nowrap">
                   {log.response_time} ms ({new Date(log.timestamp).toLocaleTimeString("he-IL")})
                 </div>
                 
-                {/* העמודה עצמה */}
                 <div 
                   style={{ height: `${heightPercentage}%` }} 
                   className={`w-full rounded-t-md transition-all duration-500 group-hover:opacity-80 ${
@@ -145,7 +172,6 @@ export default function ViewSitePage() {
                   }`}
                 />
                 
-                {/* שעה מתחת לעמודה */}
                 <span className="text-[9px] text-gray-400 mt-2 block tracking-tighter">
                   {new Date(log.timestamp).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" })}
                 </span>
@@ -155,7 +181,7 @@ export default function ViewSitePage() {
         </div>
       </div>
 
-      {/* 📜 טבלת היסטוריית אירועים ובדיקות אחרונות */}
+      {/* 📜 טבלת לוגים */}
       <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm">
         <div className="p-4 bg-gray-50 border-b border-gray-100">
           <h3 className="text-sm font-bold text-gray-900">יומן בדיקות מפורט (לוגים)</h3>
@@ -193,5 +219,17 @@ export default function ViewSitePage() {
       </div>
 
     </div>
+  );
+}
+
+export default function ViewSitePage() {
+  return (
+    <Suspense fallback={
+      <div className="flex flex-col items-center justify-center py-20 bg-white rounded-3xl border border-gray-100 shadow-sm" dir="rtl">
+        <p className="text-gray-400 font-mono text-sm animate-pulse">טוען נתוני אנליטיקה...</p>
+      </div>
+    }>
+      <ViewSiteContent />
+    </Suspense>
   );
 }

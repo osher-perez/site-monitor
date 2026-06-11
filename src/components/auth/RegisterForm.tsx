@@ -4,10 +4,14 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { registerUserAction, loginUserAction, checkEmailAction } from "@/app/actions/auth";
 
-export const RegisterForm = () => {
+// 🛡️ הגדרת הטיפוס לקבלת מצב אדמין דינמי מאב האפליקציה
+interface RegisterFormProps {
+  isAdminMode?: boolean;
+}
+
+export const RegisterForm = ({ isAdminMode = false }: RegisterFormProps) => {
   const router = useRouter();
   
-  // ניהול השלבים הדינמיים: "email" -> "login" או "register"
   const [step, setStep] = useState<"email" | "login" | "register">("email");
   const [formData, setFormData] = useState({
     name: "",
@@ -27,11 +31,9 @@ export const RegisterForm = () => {
     setLoading(true);
     setErrorMessage(null);
 
-    // ניקוי מוקדם של המייל מרווחים מיותרים והמרה לאותיות קטנות למניעת באגים
     const cleanedEmail = formData.email.trim().toLowerCase();
     
     try {
-      // שימוש ב-Server Action המאובטח שבנינו במקום fetch ישיר מהדפדפן
       const result = await checkEmailAction(cleanedEmail);
 
       if (!result.success) {
@@ -39,13 +41,17 @@ export const RegisterForm = () => {
         return;
       }
 
-      // נעדכן את המייל הנקי בתוך ה-formData
       setFormData(prev => ({ ...prev, email: cleanedEmail }));
 
       if (result.exists) {
-        setStep("login"); // המשתמש קיים -> עוברים בצורה חלקה למסך סיסמה (התחברות)
+        setStep("login"); // המשתמש קיים -> מעבר חלק למסך סיסמה
       } else {
-        setStep("register"); // משתמש חדש -> פותחים טופס הרשמה מלא
+        // 🛡️ מניעת באג הרשמה: אם מדובר בשער אדמין, לא מאפשרים הרשמה של משתמש חדש
+        if (isAdminMode) {
+          setErrorMessage("🚫 שגיאה: משתמש זה אינו רשום כמנהל מערכת.");
+          return;
+        }
+        setStep("register"); // משתמש חדש -> פותחים טופס הרשמה ללקוח
       }
     } catch (error) {
       setErrorMessage("לא ניתן להתחבר לשרת לצורך בדיקת הנתונים");
@@ -54,7 +60,7 @@ export const RegisterForm = () => {
     }
   };
 
-  // שלב ב': הגשת הטופס הסופי (התחברות או הרשמה)
+  // שלב ב': הגשת הטופס הסופי וניתוב דינמי מבוסס תפקיד (userRole)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -63,21 +69,17 @@ export const RegisterForm = () => {
     if (step === "register") {
       const result = await registerUserAction(formData);
       if (result.success) {
-        // ניתוב חכם על בסיס הרשאות אדמין / לקוח
-        if (result.isAdmin) {
-          router.push("/dashboard/admin");
-        } else {
-          router.push("/dashboard");
-        }
+        // ✅ סנכרון ניתוב: לקוח חדש נשלח ישירות לדשבורד האישי שלו
+        router.push("/dashboard");
       } else {
         setErrorMessage(result.error || "שגיאה בתהליך ההרשמה");
       }
     } else if (step === "login") {
       const result = await loginUserAction(formData);
       if (result.success) {
-        // ניתוב חכם על בסיס הרשאות אדמין / לקוח
-        if (result.isAdmin) {
-          router.push("/dashboard/admin");
+        // ✅ תיקון קריטי: ניתוב מבוסס userRole התואם במדויק ל-Middleware
+        if (result.userRole === "admin" || isAdminMode) {
+          router.push("/admin-panel");
         } else {
           router.push("/dashboard");
         }
@@ -89,7 +91,6 @@ export const RegisterForm = () => {
     setLoading(false);
   };
 
-  // פונקציית חזרה חכמה - מאפסת את השדות הרגישים כדי למנוע זליגת נתונים בטעות
   const handleBackToEmail = () => {
     setStep("email");
     setErrorMessage(null);
@@ -106,23 +107,22 @@ export const RegisterForm = () => {
   return (
     <div className="max-w-md mx-auto p-8 bg-white border border-gray-100 rounded-3xl shadow-xl text-right" dir="rtl">
       
-      {/* כותרת ותת-כותרת משתנות בהתאם לשלב */}
+      {/* כותרת ותת-כותרת משתנות בהתאם לשלב ולתפקיד */}
       <div className="mb-6">
-        <h2 className="text-2xl font-black tracking-tight text-gray-900 mb-1">
-          {step === "email" && "ברוכים הבאים ל-SiteMonitor"}
+        <h2 className="text-xl font-black tracking-tight text-gray-950 mb-1">
+          {step === "email" && (isAdminMode ? "אימות מנהל מערכת" : "ברוכים הבאים ל-SiteMonitor")}
           {step === "login" && "התחברות לחשבון"}
           {step === "register" && "יצירת חשבון מנטר"}
         </h2>
-        <p className="text-xs text-gray-400 font-medium">
-          {step === "email" && "הזן אימייל ונזהה אוטומטית אם יש לך חשבון או שאתה משתמש חדש."}
+        <p className="text-xs text-gray-400 font-medium leading-relaxed">
+          {step === "email" && (isAdminMode ? "הזן את כתובת המייל הייעודית של צוות הניהול." : "הזן אימייל ונזהה אוטומטית אם יש לך חשבון או שאתה משתמש חדש.")}
           {step === "login" && `ברוך השב! אנא הקלד את הסיסמה עבור ${formData.email}`}
-          {step === "register" && "נראה שאתה פה בפעם הראשונה! נשמח להכיר אותך."}
+          {step === "register" && "נראה שאתה פה בפעם הראשונה! נשמח להכיר אותך ונפתח עבורך חשבון."}
         </p>
       </div>
 
-      {/* הודעת שגיאה כללית במידה ויש */}
       {errorMessage && (
-        <div className="mb-4 p-3 bg-red-50 text-red-600 text-xs font-medium rounded-xl border border-red-100 font-sans text-center">
+        <div className="mb-4 p-3 bg-red-50 text-red-600 text-xs font-medium rounded-xl border border-red-100 text-center font-sans">
           {errorMessage}
         </div>
       )}
@@ -143,20 +143,21 @@ export const RegisterForm = () => {
             />
           </div>
 
-          {/* שכבת ההגנה: תיבת אזהרה חכמה למניעת טעויות הקלדה של משתמשים רשומים */}
-          <div className="p-3 bg-amber-50 rounded-xl border border-amber-100 flex items-start gap-2.5">
-            <span className="text-amber-500 text-sm mt-0.5">⚠️</span>
-            <p className="text-[11px] leading-relaxed text-amber-700 font-medium">
-              <strong>שים לב:</strong> אנא ודא שכתובת המייל מדויקת לחלוטין. במידה ותקליד מייל שגוי, המערכת תתייחס אלייך כאל משתמש חדש ותוביל אותך בטעות להרשמה מחדש.
-            </p>
-          </div>
+          {!isAdminMode && (
+            <div className="p-3 bg-amber-50 rounded-xl border border-amber-100 flex items-start gap-2.5">
+              <span className="text-amber-500 text-sm mt-0.5">⚠️</span>
+              <p className="text-[11px] leading-relaxed text-amber-700 font-medium">
+                <strong>שים לב:</strong> אנא ודא שכתובת המייל מדויקת לחלוטין. במידה ותקליד מייל שגוי, המערכת תתייחס אלייך כאל משתמש חדש ותוביל אותך בטעות להרשמה מחדש.
+              </p>
+            </div>
+          )}
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full mt-2 bg-blue-600 hover:bg-blue-500 text-white font-bold py-3.5 rounded-xl text-sm transition-all shadow-md active:scale-95 disabled:opacity-50"
+            className="w-full mt-2 bg-gray-950 hover:bg-gray-800 text-white font-bold py-3.5 rounded-xl text-xs transition-all shadow-md active:scale-95 disabled:opacity-50"
           >
-            {loading ? "בודק נתונים..." : formData.email.includes("@") ? `המשך עם ${formData.email.trim().toLowerCase()}` : "המשך למערכת"}
+            {loading ? "בודק נתונים..." : "המשך למערכת"}
           </button>
         </form>
       )}
@@ -165,7 +166,6 @@ export const RegisterForm = () => {
       {step !== "email" && (
         <form onSubmit={handleSubmit} className="space-y-4">
           
-          {/* שדות שמוצגים אך ורק למשתמשים חדשים בתהליך הרשמה */}
           {step === "register" && (
             <>
               <div>
@@ -208,7 +208,6 @@ export const RegisterForm = () => {
             </>
           )}
 
-          {/* שדה סיסמה - משותף לשני המצבים לאחר אישור המייל */}
           <div>
             <label className="block text-xs font-bold uppercase tracking-wide text-gray-500 mb-1.5">
               {step === "login" ? "הזן את הסיסמה שלך" : "קבע סיסמה לחשבון החדש"}
@@ -224,7 +223,6 @@ export const RegisterForm = () => {
             />
           </div>
 
-          {/* צ'קבוקס דיוור ואישור - מוצג רק בהרשמה */}
           {step === "register" && (
             <div className="flex items-start gap-2.5 pt-1">
               <input
@@ -240,17 +238,15 @@ export const RegisterForm = () => {
             </div>
           )}
 
-          {/* כפתורי שליחה ופעולה סופיים */}
           <div className="flex flex-col gap-2 pt-3">
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3.5 rounded-xl text-sm transition-all shadow-md active:scale-95 disabled:opacity-50"
+              className="w-full bg-gray-950 hover:bg-gray-800 text-white font-bold py-3.5 rounded-xl text-xs transition-all shadow-md active:scale-95 disabled:opacity-50"
             >
               {loading ? "מבצע פעולה..." : step === "login" ? "התחבר כעת" : "צור חשבון והפעל ניטור"}
             </button>
 
-            {/* שימוש בפונקציית החזרה החכמה והמאפסת */}
             <button
               type="button"
               onClick={handleBackToEmail}

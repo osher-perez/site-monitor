@@ -1,37 +1,34 @@
+"use client";
+
 import { HeroSection } from "@/components/marketing/HeroSection";
+import { FreeScanner } from "@/components/marketing/FreeScanner";
 import { FeaturesSection } from "@/components/marketing/FeaturesSection";
 import { PricingSection } from "@/components/marketing/PricingSection";
-import Link from "next/link"; // ייבוא הקומפוננטה למעבר מהיר בין דפים
 
 export default function MarketingHomePage() {
   return (
-    <div className="min-h-screen bg-white transition-colors duration-500 text-right" dir="rtl">
-      <div className="py-20 px-4">
-        <div className="max-w-6xl mx-auto text-center space-y-12">
-          
-          {/* אזור הפתיחה וההסברים */}
-          <HeroSection />
-          
-          {/* פיצ'רים של המערכת */}
-          <FeaturesSection />
+    <div className="min-h-screen bg-white text-gray-900 text-right" dir="rtl">
+      {/* 🚀 מקטע 1: אזור ה-Hero (הרושם הראשוני והסבר הליבה) */}
+      <section className="py-20 px-4 max-w-6xl mx-auto text-center">
+        <HeroSection />
+      </section>
 
-          {/* 🚀 כפתור קריאה לפעולה מרכזי שמוביל לעמוד ה-auth שבדקנו קודם! */}
-          <div className="py-6">
-            <Link 
-              href="/auth" 
-              className="inline-block bg-gray-900 hover:bg-gray-800 text-white font-bold text-lg px-8 py-4 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-200 hover:-translate-y-0.5 active:scale-95"
-            >
-              התחל לנטר בחינם ←
-            </Link>
-            <p className="text-xs text-gray-400 mt-2">הקמת חשבון מהירה ב-30 שניות, ללא כרטיס אשראי</p>
-          </div>
-          
-          {/* טבלת המחירים */}
-          <PricingSection />
-          
-          {/* כאן תוכל להוסיף בעתיד בקלות: <TestimonialsSection /> או <FAQSection /> */}
+      {/* 🔍 מקטע 2: סורק האבחון החינמי (הנעה אינטראקטיבית לפעולה) */}
+      <section className="pb-16 px-4">
+        <FreeScanner />
+      </section>
+
+      {/* 🛠️ מקטע 3: אזור הפיצ'רים (העמקה טכנולוגית ויכולות המערכת) */}
+      <section className="py-16 px-4 bg-gray-50/50 border-y border-gray-100">
+        <div className="max-w-7xl mx-auto">
+          <FeaturesSection />
         </div>
-      </div>
+      </section>
+
+      {/* 💰 מקטע 4: אזור המחירון (חבילות, מחירים ומגבלות החבילה החינמית) */}
+      <section className="py-20 px-4 max-w-6xl mx-auto text-center">
+        <PricingSection />
+      </section>
     </div>
   );
 }

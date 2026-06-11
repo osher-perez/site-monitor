@@ -6,7 +6,7 @@ from pymongo import MongoClient
 import requests
 from bson import ObjectId
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi_utils.tasks import repeat_every
 
@@ -137,15 +137,30 @@ def check_site(url: str):
     return {"status": "SUCCESS", "message": f"Checked {url}"}
 
 
-# Route המרכזי שמחזיר את כל האתרים ל-Next.js
+# ✅ 1. תיקון האנדפוינט המרכזי - הוספת סינון קשיח לפי מזהה המשתמש המבקש
 @app.get("/list-sites")
-def list_sites():
+def list_sites(user_id: str = None):
     try:
-        sites = list(sites_collection.find({}))
+        if not user_id:
+            logger.warning("⚠️ list-sites called without user_id parameter")
+            return []
+
+        # המרת הסטרינג ל-ObjectId מוסמך או בדיקה כטקסט נקי בהתאם לאיך ששמרת אותו
+        query = {}
+        try:
+            query = {"$or": [{"userId": ObjectId(user_id)}, {"userId": user_id}, {"user_id": user_id}]}
+        except Exception:
+            query = {"$or": [{"userId": user_id}, {"user_id": user_id}]}
+
+        # שליפת האתרים השייכים אך ורק למשתמש הנוכחי
+        sites = list(sites_collection.find(query))
+        
         for s in sites:
             s["_id"] = str(s["_id"])
             if "userId" in s and s["userId"]:
                 s["userId"] = str(s["userId"])
+            if "user_id" in s and s["user_id"]:
+                s["user_id"] = str(s["user_id"])
             if "lastCheck" in s and s["lastCheck"]:
                 s["lastCheck"] = (
                     s["lastCheck"].isoformat()
@@ -156,6 +171,56 @@ def list_sites():
     except Exception as e:
         logger.error(f"❌ Error in list_sites endpoint: {e}")
         return {"status": "ERROR", "detail": str(e)}
+
+
+# ✅ 2. הוספת האנדפוינט החסר שגרם לקריסה בעמוד ה-View Site
+@app.get("/site-history")
+def get_site_history(url: str, user_id: str):
+    try:
+        if not url or not user_id:
+            raise HTTPException(status_code=400, detail="Missing required parameters")
+
+        # אימות בעלות: ודא שהאתר הזה שייך למשתמש שמנסה לחטט בו
+        try:
+            user_query = {"$or": [{"userId": ObjectId(user_id)}, {"userId": user_id}, {"user_id": user_id}]}
+        except Exception:
+            user_query = {"$or": [{"userId": user_id}, {"user_id": user_id}]}
+            
+        site_query = {"url": url, **user_query}
+        site_exists = sites_collection.find_one(site_query)
+
+        if not site_exists:
+            # אבטחת מידע - אם האתר לא שלו או לא קיים, הוא נחסם
+            raise HTTPException(status_code=404, detail="האתר לא נמצא או שאינו משויך לחשבונך")
+
+        # שליפת היסטוריית לוגי הבדיקות מתוך האוסף checks_collection
+        # המרת ה-siteId לחיפוש תואם
+        site_id = site_exists["_id"]
+        cursor = checks_collection.find({"url": url}).sort("timestamp", -1).limit(50)
+        history_logs = list(cursor)
+
+        # המרת הטיפוסים לפורמט JSON נקי לטובת Next.js
+        formatted_history = []
+        for log in history_logs:
+            formatted_history.append({
+                "status": log.get("status", "UNKNOWN"),
+                "response_time": log.get("response_time", 0),
+                "timestamp": log.get("timestamp").isoformat() if log.get("timestamp") else None
+            })
+
+        return {
+            "url": url,
+            "status": site_exists.get("status", "PENDING"),
+            "lastCheck": site_exists.get("lastCheck").isoformat() if site_exists.get("lastCheck") else None,
+            "history": formatted_history
+        }
+
+    except HTTPException as http_ex:
+        raise http_ex
+    except Exception as e:
+        logger.error(f"❌ Error in site-history endpoint: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 # Route מיוחד למנהלים - מחזיר את כל הלקוחות וסיכום סטטוס האתרים שלהם
 @app.get("/admin/overview")
@@ -169,8 +234,14 @@ def get_admin_overview():
         for user in users:
             user_id = user["_id"]
             
-            # 2. שליפת כל האתרים ששייכים ללקוח הספציפי הזה
-            user_sites = list(sites_collection.find({"userId": user_id}))
+            # 2. שליפת כל האתרים ששייכים ללקוח הספציפי הזה (תמיכה בשני סוגי המפתחות האפשריים)
+            user_sites = list(sites_collection.find({
+                "$or": [
+                    {"userId": user_id},
+                    {"userId": str(user_id)},
+                    {"user_id": str(user_id)}
+                ]
+            }))
             
             # 3. ספירת הסטטוסים (UP מול כל השאר כמו DOWN או PENDING)
             up_count = sum(1 for site in user_sites if site.get("status") == "UP")
