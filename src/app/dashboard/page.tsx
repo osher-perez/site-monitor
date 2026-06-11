@@ -59,26 +59,26 @@ export default function DashboardPage() {
   const isLimitReached = sites.length >= MAX_SITES_LIMIT;
 
   return (
-    <div className="max-w-6xl mx-auto text-white" dir="rtl">
-      {/* כותרת וכפתור הוספה */}
+    <div className="max-w-6xl mx-auto text-gray-900" dir="rtl">
+      {/* כותרת וכפתור הוספה בעיצוב בהיר */}
       <div className="flex justify-between items-center mb-10">
         <div>
-          <h1 className="text-3xl font-black tracking-tight text-white mb-1">האתרים שלי</h1>
-          <p className="text-xs text-zinc-500 font-mono">
+          <h1 className="text-3xl font-black tracking-tight text-gray-950 mb-1">האתרים שלי</h1>
+          <p className="text-xs text-gray-400 font-mono">
             ניהול וסטטיסטיקות בזמן אמת ({sites.length}/{MAX_SITES_LIMIT} אתרים בשימוש)
           </p>
         </div>
 
         {isLimitReached ? (
           <div className="text-left">
-            <span className="bg-amber-500/10 text-amber-400 border border-amber-500/20 px-4 py-2.5 rounded-xl font-bold text-xs">
+            <span className="bg-amber-50 text-amber-600 border border-amber-200 px-4 py-2.5 rounded-xl font-bold text-xs">
               🔒 הגעת למגבלת החבילה ({MAX_SITES_LIMIT} אתרים)
             </span>
           </div>
         ) : (
           <Link
-            href="/dashboard/sites/add"
-            className="bg-zinc-100 hover:bg-white text-black px-5 py-2.5 rounded-xl font-bold text-sm transition-all shadow-lg active:scale-95"
+            href="/dashboard/add-site"
+            className="bg-gray-900 hover:bg-gray-800 text-white px-5 py-2.5 rounded-xl font-bold text-sm transition-all shadow-sm active:scale-95"
           >
             + הוסף אתר לניטור
           </Link>
@@ -87,53 +87,53 @@ export default function DashboardPage() {
 
       {/* מצב טעינה */}
       {loading ? (
-        <div className="flex flex-col items-center justify-center py-20 bg-zinc-950/30 rounded-3xl border border-zinc-900">
-          <p className="text-zinc-400 font-mono text-sm animate-pulse">טוען נתונים מהדאטהבייס...</p>
+        <div className="flex flex-col items-center justify-center py-20 bg-white rounded-3xl border border-gray-100 shadow-sm">
+          <p className="text-gray-400 font-mono text-sm animate-pulse">טוען נתונים מהדאטהבייס...</p>
         </div>
       ) : errorMsg ? (
         /* מצב שגיאה */
-        <div className="bg-red-500/10 p-6 rounded-2xl text-center border border-red-500/20">
-          <p className="text-red-400 text-sm font-medium">{errorMsg}</p>
+        <div className="bg-red-50 p-6 rounded-2xl text-center border border-red-100">
+          <p className="text-red-600 text-sm font-medium">{errorMsg}</p>
         </div>
       ) : sites.length === 0 ? (
         /* מצב שבו אין אתרים ברשימה */
-        <div className="bg-zinc-950/40 p-12 rounded-3xl text-center border border-zinc-900/80">
-          <p className="text-zinc-400 text-sm italic mb-4">
+        <div className="bg-white p-12 rounded-3xl text-center border border-gray-100 shadow-sm">
+          <p className="text-gray-500 text-sm italic mb-4">
             אין עדיין אתרים תחת החשבון שלך. הגיע הזמן להוסיף את האתר הראשון!
           </p>
-          <Link href="/dashboard/sites/add" className="text-blue-400 hover:underline text-sm font-bold">
+          <Link href="/dashboard/add-site" className="text-blue-600 hover:underline text-sm font-bold">
             לחץ כאן כדי להוסיף אתר ראשון
           </Link>
         </div>
       ) : (
-        /* רשימת האתרים (גריד כרטיסים) */
+        /* רשימת האתרים (גריד כרטיסים בהירים) */
         <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
           {sites.map((site, index) => (
             <Link
-              href={`/dashboard/sites/view?url=${encodeURIComponent(site.url)}`}
+              href={`/dashboard/view-site?url=${encodeURIComponent(site.url)}`}
               key={index}
               className="group block"
             >
-              <div className="bg-zinc-950 p-6 rounded-2xl border border-zinc-900 shadow-xl group-hover:border-zinc-800 group-hover:-translate-y-1 transition-all duration-300 cursor-pointer">
+              <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm group-hover:border-gray-200 group-hover:-translate-y-1 transition-all duration-300 cursor-pointer">
                 <div className="flex justify-between items-start mb-6 gap-3">
-                  <h3 className="font-mono text-base font-bold truncate w-3/4 text-zinc-100 tracking-tight group-hover:text-blue-400 transition-colors">
+                  <h3 className="font-mono text-base font-bold truncate w-3/4 text-gray-800 tracking-tight group-hover:text-blue-600 transition-colors">
                     {site.url.replace("https://", "").replace("http://", "")}
                   </h3>
 
                   <span
                     className={`px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wider ${
                       site.status === "UP"
-                        ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                        : "bg-red-500/10 text-red-400 border border-red-500/20"
+                        ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
+                        : "bg-rose-50 text-rose-700 border border-rose-100"
                     }`}
                   >
-                    {site.status}
+                    {site.status === "UP" ? "תקין" : "למטה"}
                   </span>
                 </div>
 
-                <div className="border-t border-zinc-900 pt-4 flex justify-between items-center text-zinc-500 text-xs font-medium">
+                <div className="border-t border-gray-50 pt-4 flex justify-between items-center text-gray-400 text-xs font-medium">
                   <span>בדיקה אחרונה:</span>
-                  <span className="text-zinc-300 font-mono">
+                  <span className="text-gray-600 font-mono">
                     {site.last_checked ? new Date(site.last_checked).toLocaleTimeString("he-IL") : "---"}
                   </span>
                 </div>
