@@ -20,11 +20,7 @@ export default function MarketingLayout({
           {/* תפריט הניווט - מכיל רק את כפתור הכניסה המאוחד */}
           <nav>
             <ul className="flex items-center gap-6">
-              <li>
-                <Link href="/#pricing" className="text-xs font-bold uppercase tracking-wider text-gray-500 hover:text-gray-900 transition">
-                  מחירים
-                </Link>
-              </li>
+              
               
               {/* הכפתור המאוחד והיחיד - מוביל לנתיב ה-auth החדש שבו נשים את תיבת המייל החכמה */}
               <li>

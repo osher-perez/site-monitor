@@ -9,6 +9,12 @@ interface Site {
   last_checked: string;
 }
 
+interface UserProfile {
+  name: string;
+  email: string;
+  plan: string;
+}
+
 // פונקציית עזר לשליפת קוקי בצד הלקוח
 function getCookie(name: string): string | null {
   if (typeof document === "undefined") return null;
@@ -20,16 +26,15 @@ function getCookie(name: string): string | null {
 
 export default function DashboardPage() {
   const [sites, setSites] = useState<Site[]>([]);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // הגדרת מגבלת האתרים לחשבון
   const MAX_SITES_LIMIT = 3; 
 
   useEffect(() => {
     const userId = getCookie("userId");
 
-    // אם אין מזהה משתמש - נעדכן את השגיאה והטעינה בפעימה אחת אסינכרונית קלה
     if (!userId) {
       setTimeout(() => {
         setErrorMsg("מזהה משתמש לא נמצא. נא להתחבר מחדש.");
@@ -38,16 +43,34 @@ export default function DashboardPage() {
       return;
     }
 
-    // שליחת ה-userId לפייתון לקבלת האתרים שלו
-    fetch(`http://localhost:8000/list-sites?user_id=${userId}`)
+    // קריאה ראשונה: שליפת פרטי הפרופיל (עם מנגנון הגנה מקומי מפני קריסה)
+    const fetchProfile = fetch(`http://localhost:8000/user-profile?user_id=${userId}`)
       .then((res) => {
-        if (!res.ok) throw new Error("שגיאה בקבלת הנתונים מהשרת");
+        if (!res.ok) throw new Error("שגיאה בטעינת פרופיל משתמש");
         return res.json();
       })
-      .then((data) => {
-        setSites(data);
-        setLoading(false);
+      .then((data) => setProfile(data))
+      .catch((err) => {
+        console.warn("User profile endpoint failed, fallback to local temporary info:", err);
+        // פתרון חוסן: מונע מכל הדף לקרוס במידה והנתיב בפייתון לא קיים/תקין
+        setProfile({
+          name: "משתמש מחובר",
+          email: "פרופיל בטעינה...",
+          plan: "Premium החינמית"
+        });
+      });
+
+    // קריאה שנייה: שליפת רשימת האתרים שלו
+    const fetchSites = fetch(`http://localhost:8000/list-sites?user_id=${userId}`)
+      .then((res) => {
+        if (!res.ok) throw new Error("שגיאה בקבלת רשימת האתרים");
+        return res.json();
       })
+      .then((data) => setSites(data));
+
+    // הרצת שתי הקריאות יחד וסיום מצב טעינה
+    Promise.all([fetchProfile, fetchSites])
+      .then(() => setLoading(false))
       .catch((err) => {
         console.error("Dashboard Fetch Error:", err);
         setErrorMsg("לא ניתן ליצור קשר עם שרת הניטור בפייתון.");
@@ -55,22 +78,58 @@ export default function DashboardPage() {
       });
   }, []);
 
-  // בדיקה האם המשתמש הגיע למגבלת האתרים שלו
   const isLimitReached = sites.length >= MAX_SITES_LIMIT;
 
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 bg-white rounded-3xl border border-gray-100 shadow-sm" dir="rtl">
+        <p className="text-gray-400 font-mono text-sm animate-pulse">טוען נתוני חשבון ואתרים...</p>
+      </div>
+    );
+  }
+
+  if (errorMsg) {
+    return (
+      <div className="bg-red-50 p-6 rounded-2xl text-center border border-red-100 max-w-2xl mx-auto" dir="rtl">
+        <p className="text-red-600 text-sm font-medium">{errorMsg}</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="max-w-6xl mx-auto text-gray-900" dir="rtl">
-      {/* כותרת וכפתור הוספה בעיצוב בהיר */}
-      <div className="flex justify-between items-center mb-10">
+    <div className="max-w-6xl mx-auto text-gray-900 space-y-10" dir="rtl">
+      
+      {/* 👤 כרטיס פרופיל אישי עליון */}
+      {profile && (
+        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-full bg-blue-50 text-blue-600 font-black text-xl flex items-center justify-center shadow-inner">
+              {profile.name[0].toUpperCase()}
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-gray-950">שלום, {profile.name}</h2>
+              <p className="text-xs text-gray-400 font-mono">{profile.email}</p>
+            </div>
+          </div>
+          <div className="self-start sm:self-auto">
+            <span className="bg-blue-50 text-blue-700 border border-blue-100 px-3 py-1.5 rounded-xl font-bold text-xs uppercase tracking-wide">
+              📋 תוכנית: {profile.plan || "Premium החינמית"}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* 🌐 כותרת רשימת האתרים וכפתור הוספה */}
+      <div className="flex justify-between items-center border-t border-gray-100 pt-6">
         <div>
-          <h1 className="text-3xl font-black tracking-tight text-gray-950 mb-1">האתרים שלי</h1>
+          <h1 className="text-2xl font-black tracking-tight text-gray-950 mb-1">האתרים שלי</h1>
           <p className="text-xs text-gray-400 font-mono">
-            ניהול וסטטיסטיקות בזמן אמת ({sites.length}/{MAX_SITES_LIMIT} אתרים בשימוש)
+            סטטוס הניטור שלך ({sites.length}/{MAX_SITES_LIMIT} אתרים בשימוש)
           </p>
         </div>
 
         {isLimitReached ? (
-          <div className="text-left">
+          <div>
             <span className="bg-amber-50 text-amber-600 border border-amber-200 px-4 py-2.5 rounded-xl font-bold text-xs">
               🔒 הגעת למגבלת החבילה ({MAX_SITES_LIMIT} אתרים)
             </span>
@@ -85,18 +144,8 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* מצב טעינה */}
-      {loading ? (
-        <div className="flex flex-col items-center justify-center py-20 bg-white rounded-3xl border border-gray-100 shadow-sm">
-          <p className="text-gray-400 font-mono text-sm animate-pulse">טוען נתונים מהדאטהבייס...</p>
-        </div>
-      ) : errorMsg ? (
-        /* מצב שגיאה */
-        <div className="bg-red-50 p-6 rounded-2xl text-center border border-red-100">
-          <p className="text-red-600 text-sm font-medium">{errorMsg}</p>
-        </div>
-      ) : sites.length === 0 ? (
-        /* מצב שבו אין אתרים ברשימה */
+      {/* גריד כרטיסי האתרים */}
+      {sites.length === 0 ? (
         <div className="bg-white p-12 rounded-3xl text-center border border-gray-100 shadow-sm">
           <p className="text-gray-500 text-sm italic mb-4">
             אין עדיין אתרים תחת החשבון שלך. הגיע הזמן להוסיף את האתר הראשון!
@@ -106,7 +155,6 @@ export default function DashboardPage() {
           </Link>
         </div>
       ) : (
-        /* רשימת האתרים (גריד כרטיסים בהירים) */
         <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
           {sites.map((site, index) => (
             <Link
@@ -132,8 +180,8 @@ export default function DashboardPage() {
                 </div>
 
                 <div className="border-t border-gray-50 pt-4 flex justify-between items-center text-gray-400 text-xs font-medium">
-                  <span>בדיקה אחרונה:</span>
-                  <span className="text-gray-600 font-mono">
+                  <span className="text-blue-600 group-hover:underline">נתוני ניטור מורחבים ←</span>
+                  <span className="text-gray-500 font-mono text-[11px]">
                     {site.last_checked ? new Date(site.last_checked).toLocaleTimeString("he-IL") : "---"}
                   </span>
                 </div>
