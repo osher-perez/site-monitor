@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi_utils.tasks import repeat_every
+from pydantic import BaseModel, HttpUrl
 
 # ייבוא הראוטרים של המערכת
 from backend import freeScan
@@ -27,11 +28,10 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000"],  # מאשר ל-Next.js לפנות אלינו
     allow_credentials=True,
-    allow_methods=["*"],                      # מאשר את כל סוגי הבקשות (GET, POST וכו')
+    allow_methods=["*"],                      # מאשר את כל סוגי הבקשות
     allow_headers=["*"],                      # מאשר את כל סוגי ה-Headers
 )
 
-# ריכוז וחיבור הראוטרים של המערכת באזור אחד מוגדר
 app.include_router(auth_router)
 app.include_router(freeScan.router)
 
@@ -42,7 +42,7 @@ try:
     db = client.get_database("site_monitor")
 
     sites_collection = db.sites
-    checks_collection = db.checks  # אוסף הבדיקות הרשמי והיחיד
+    checks_collection = db.checks  # אוסף הבדיקות המרכזי (Logs)
 
     client.server_info()
     logger.info("✅ Connected to MongoDB successfully (site_monitor)")
@@ -50,46 +50,48 @@ except Exception as e:
     logger.error(f"❌ Could not connect to MongoDB: {e}")
 
 
+# מודל הגדרת נתונים להוספת אתר חדש (Validation)
+class SiteCreateInput(BaseModel):
+    url: HttpUrl
+    user_id: str
+
+
 # פונקציית עזר לביצוע בדיקת אתר ושמירת התוצאות
 def run_and_save_check(site_document):
-    url = site_document["url"]
+    url = str(site_document["url"])
     try:
         logger.info(f"🔍 System checking site: {url}")
         start_time = time.time()
 
-        # ביצוע קריאת ה-HTTP לאתר עם Timeout של 10 שניות
         response = requests.get(url, timeout=10)
         response_ms = round((time.time() - start_time) * 1000)
         status = "UP" if response.status_code == 200 else "DOWN"
 
-        # וידוא שה-ID מומר ל-ObjectId של מונגו
         site_id = site_document["_id"]
         if isinstance(site_id, str):
             site_id = ObjectId(site_id)
 
-        # 1. יצירת לוג בדיקה חדש באוסף checks
+        # ✅ יישור קו: שמירת לוג הבדיקה תחת מפתח אחיד ומקשר site_id
         check_entry = {
             "url": url,
-            "siteId": site_id,
+            "site_id": site_id,
             "status": status,
-            "response_time": response_ms,
+            "response_time_ms": response_ms,
             "timestamp": datetime.now(timezone.utc),
         }
         checks_collection.insert_one(check_entry)
 
-        # 2. עדכון הסטטוס האחרון במסמך של האתר באוסף sites
+        # עדכון הסטטוס האחרון באוסף sites
         sites_collection.update_one(
             {"_id": site_id},
             {
                 "$set": {
                     "status": status,
-                    "lastCheck": datetime.now(timezone.utc),
+                    "last_check": datetime.now(timezone.utc),
                 }
             },
         )
-        logger.info(
-            f"✨ Auto-check completed for {url}: {status} ({response_ms}ms)"
-        )
+        logger.info(f"✨ Auto-check completed for {url}: {status} ({response_ms}ms)")
 
     except Exception as e:
         logger.error(f"💥 Failed checking {url}: {str(e)}")
@@ -103,7 +105,7 @@ def run_and_save_check(site_document):
                 {
                     "$set": {
                         "status": "DOWN",
-                        "lastCheck": datetime.now(timezone.utc),
+                        "last_check": datetime.now(timezone.utc),
                     }
                 },
             )
@@ -127,7 +129,53 @@ def hourly_monitor_task():
         logger.error(f"❌ Error in hourly monitor task: {e}")
 
 
-# Route לבדיקת אתר בודד ידנית (למשל בלחיצת כפתור מהדשבורד)
+# ========================================================
+# 🚀 משימה 1: הוספת אנדפוינט חדש, מאובטח ומיושר להוספת אתר
+# ========================================================
+@app.post("/add-site")
+def add_new_site(input_data: SiteCreateInput):
+    try:
+        target_url = str(input_data.url).rstrip("/")
+        user_id_str = input_data.user_id.strip()
+
+        # אבטחת שרת קשיחה: וידוא שלא עוקפים את מכסת ה-3 אתרים של המסלול החינמי
+        existing_count = sites_collection.count_documents({"user_id": user_id_str})
+        if existing_count >= 3:
+            raise HTTPException(
+                status_code=400, 
+                detail="🚫 לא ניתן להוסיף אתר. הגעת למגבלת המכסה המקסימלית של החשבון (3 אתרים)."
+            )
+
+        # מניעת כפילויות: בדיקה האם האתר הזה כבר מנוטר תחת המשתמש הנוכחי
+        duplicate_site = sites_collection.find_one({"url": target_url, "user_id": user_id_str})
+        if duplicate_site:
+            raise HTTPException(status_code=400, detail="⚠️ אתר זה כבר קיים ברשימת הניטור שלך.")
+
+        # יצירת מסמך האתר בפורמט הארכיטקטוני האחיד והחדש
+        new_site_doc = {
+            "user_id": user_id_str,
+            "url": target_url,
+            "status": "PENDING",
+            "last_check": None,
+            "created_at": datetime.now(timezone.utc)
+        }
+        
+        result = sites_collection.insert_one(new_site_doc)
+        
+        # הרצת בדיקה ראשונית מיידית לאתר החדש כדי שהלקוח לא יראה סטטוס ריק
+        new_site_doc["_id"] = result.inserted_id
+        run_and_save_check(new_site_doc)
+
+        return {"status": "SUCCESS", "message": "האתר נוסף בהצלחה למערכת הניטור והופעל סריקה ראשונית."}
+
+    except HTTPException as http_ex:
+        raise http_ex
+    except Exception as e:
+        logger.error(f"❌ Error in add_site endpoint: {e}")
+        raise HTTPException(status_code=500, detail=f"שגיאה פנימית בהוספת האתר: {str(e)}")
+
+
+# Route לבדיקת אתר בודד ידנית
 @app.get("/check")
 def check_site(url: str):
     site = sites_collection.find_one({"url": url})
@@ -137,7 +185,7 @@ def check_site(url: str):
     return {"status": "SUCCESS", "message": f"Checked {url}"}
 
 
-# ✅ 1. תיקון האנדפוינט המרכזי - הוספת סינון קשיח לפי מזהה המשתמש המבקש
+# ✅ תיקון אחידות: שליפת האתרים לפי השדה האחיד user_id בלבד
 @app.get("/list-sites")
 def list_sites(user_id: str = None):
     try:
@@ -145,27 +193,17 @@ def list_sites(user_id: str = None):
             logger.warning("⚠️ list-sites called without user_id parameter")
             return []
 
-        # המרת הסטרינג ל-ObjectId מוסמך או בדיקה כטקסט נקי בהתאם לאיך ששמרת אותו
-        query = {}
-        try:
-            query = {"$or": [{"userId": ObjectId(user_id)}, {"userId": user_id}, {"user_id": user_id}]}
-        except Exception:
-            query = {"$or": [{"userId": user_id}, {"user_id": user_id}]}
-
-        # שליפת האתרים השייכים אך ורק למשתמש הנוכחי
-        sites = list(sites_collection.find(query))
+        # שליפת האתרים השייכים אך ורק למשתמש הנוכחי (תומך רשמית בפורמט המיושר)
+        sites = list(sites_collection.find({"user_id": user_id.strip()}))
         
         for s in sites:
             s["_id"] = str(s["_id"])
-            if "userId" in s and s["userId"]:
-                s["userId"] = str(s["userId"])
-            if "user_id" in s and s["user_id"]:
-                s["user_id"] = str(s["user_id"])
-            if "lastCheck" in s and s["lastCheck"]:
-                s["lastCheck"] = (
-                    s["lastCheck"].isoformat()
-                    if hasattr(s["lastCheck"], "isoformat")
-                    else str(s["lastCheck"])
+            s["user_id"] = str(s["user_id"])
+            if "last_check" in s and s["last_check"]:
+                s["last_check"] = (
+                    s["last_check"].isoformat()
+                    if hasattr(s["last_check"], "isoformat")
+                    else str(s["last_check"])
                 )
         return sites
     except Exception as e:
@@ -173,45 +211,36 @@ def list_sites(user_id: str = None):
         return {"status": "ERROR", "detail": str(e)}
 
 
-# ✅ 2. הוספת האנדפוינט החסר שגרם לקריסה בעמוד ה-View Site
+# ✅ תיקון אחידות: הצלבת היסטוריה לפי הסטנדרט החדש
 @app.get("/site-history")
 def get_site_history(url: str, user_id: str):
     try:
         if not url or not user_id:
             raise HTTPException(status_code=400, detail="Missing required parameters")
 
-        # אימות בעלות: ודא שהאתר הזה שייך למשתמש שמנסה לחטט בו
-        try:
-            user_query = {"$or": [{"userId": ObjectId(user_id)}, {"userId": user_id}, {"user_id": user_id}]}
-        except Exception:
-            user_query = {"$or": [{"userId": user_id}, {"user_id": user_id}]}
-            
-        site_query = {"url": url, **user_query}
-        site_exists = sites_collection.find_one(site_query)
+        # אימות בעלות הרמטי
+        site_exists = sites_collection.find_one({"url": url, "user_id": user_id.strip()})
 
         if not site_exists:
-            # אבטחת מידע - אם האתר לא שלו או לא קיים, הוא נחסם
             raise HTTPException(status_code=404, detail="האתר לא נמצא או שאינו משויך לחשבונך")
 
-        # שליפת היסטוריית לוגי הבדיקות מתוך האוסף checks_collection
-        # המרת ה-siteId לחיפוש תואם
+        # משיכת לוגי הבדיקות המקושרים לאתר
         site_id = site_exists["_id"]
-        cursor = checks_collection.find({"url": url}).sort("timestamp", -1).limit(50)
+        cursor = checks_collection.find({"site_id": site_id}).sort("timestamp", -1).limit(50)
         history_logs = list(cursor)
 
-        # המרת הטיפוסים לפורמט JSON נקי לטובת Next.js
         formatted_history = []
         for log in history_logs:
             formatted_history.append({
                 "status": log.get("status", "UNKNOWN"),
-                "response_time": log.get("response_time", 0),
+                "response_time": log.get("response_time_ms", 0),
                 "timestamp": log.get("timestamp").isoformat() if log.get("timestamp") else None
             })
 
         return {
             "url": url,
             "status": site_exists.get("status", "PENDING"),
-            "lastCheck": site_exists.get("lastCheck").isoformat() if site_exists.get("lastCheck") else None,
+            "last_check": site_exists.get("last_check").isoformat() if site_exists.get("last_check") else None,
             "history": formatted_history
         }
 
@@ -226,29 +255,19 @@ def get_site_history(url: str, user_id: str):
 @app.get("/admin/overview")
 def get_admin_overview():
     try:
-        # 1. שליפת כל המשתמשים במערכת שאינם אדמינים (כדי שהאדמין לא יראה את עצמו כלקוח)
         users = list(db.users.find({"isAdmin": {"$ne": True}}))
-        
         admin_report = []
 
         for user in users:
             user_id = user["_id"]
             
-            # 2. שליפת כל האתרים ששייכים ללקוח הספציפי הזה (תמיכה בשני סוגי המפתחות האפשריים)
-            user_sites = list(sites_collection.find({
-                "$or": [
-                    {"userId": user_id},
-                    {"userId": str(user_id)},
-                    {"user_id": str(user_id)}
-                ]
-            }))
+            # שליפת האתרים המשויכים למשתמש לפי הפורמט האחיד
+            user_sites = list(sites_collection.find({"user_id": str(user_id)}))
             
-            # 3. ספירת הסטטוסים (UP מול כל השאר כמו DOWN או PENDING)
             up_count = sum(1 for site in user_sites if site.get("status") == "UP")
             down_count = sum(1 for site in user_sites if site.get("status") in ["DOWN", "ERROR"])
             total_sites = len(user_sites)
 
-            # 4. אריזת הנתונים בצורה נקייה עבור ה-Frontend
             admin_report.append({
                 "userId": str(user_id),
                 "name": user.get("name", "משתמש ללא שם"),
@@ -266,6 +285,87 @@ def get_admin_overview():
     except Exception as e:
         logger.error(f"❌ Error in admin overview endpoint: {e}")
         return {"status": "ERROR", "detail": str(e)}
+    
+    # מודל נתונים לעדכון כתובת האתר (Pydantic Validation)
+class SiteUpdateInput(BaseModel):
+    old_url: HttpUrl
+    new_url: HttpUrl
+    user_id: str
+
+# 🗑️ אנדפוינט למחיקת אתר והיסטוריית הבדיקות שלו (Cascade Delete)
+@app.delete("/delete-site")
+def delete_site(url: str, user_id: str):
+    try:
+        user_id_str = user_id.strip()
+        url_str = url.strip().rstrip("/")
+
+        # וידוא בעלות על האתר לפני ביצוע המחיקה
+        site = sites_collection.find_one({"url": url_str, "user_id": user_id_str})
+        if not site:
+            raise HTTPException(status_code=404, detail="🚫 האתר לא נמצא או שאינו משויך לחשבונך.")
+
+        # 1. מחיקת האתר מאוסף האתרים
+        sites_collection.delete_one({"_id": site["_id"]})
+
+        # 2. ניקוי רציף: מחיקת כל הלוגים המשויכים לאתר באוסף checks
+        checks_collection.delete_many({"site_id": site["_id"]})
+
+        logger.info(f"🗑️ Site and checks destroyed for: {url_str} by user {user_id_str}")
+        return {"status": "SUCCESS", "message": "האתר וכל היסטוריית הלוגים שלו נמחקו לחלוטין מהחשבון."}
+
+    except HTTPException as http_ex:
+        raise http_ex
+    except Exception as e:
+        logger.error(f"❌ Error in delete_site endpoint: {e}")
+        raise HTTPException(status_code=500, detail=f"שגיאה פנימית במחיקת האתר: {str(e)}")
+
+
+# 📝 אנדפוינט לעריכת כתובת ה-URL של האתר ללא אובדן היסטוריה
+@app.put("/update-site")
+def update_site(input_data: SiteUpdateInput):
+    try:
+        user_id_str = input_data.user_id.strip()
+        old_url_str = str(input_data.old_url).rstrip("/")
+        new_url_str = str(input_data.new_url).rstrip("/")
+
+        if old_url_str == new_url_str:
+            return {"status": "SUCCESS", "message": "לא בוצע שינוי, כתובת ה-URL זהה."}
+
+        # וידוא בעלות על האתר המיועד לעריכה
+        site = sites_collection.find_one({"url": old_url_str, "user_id": user_id_str})
+        if not site:
+            raise HTTPException(status_code=404, detail="🚫 האתר לעריכה לא נמצא או שאינו משויך לחשבונך.")
+
+        # מניעת כפילויות: וידוא שהכתובת החדשה לא קיימת כבר אצל המשתמש הזה
+        duplicate = sites_collection.find_one({"url": new_url_str, "user_id": user_id_str})
+        if duplicate:
+            raise HTTPException(status_code=400, detail="⚠️ כתובת ה-URL החדשה כבר קיימת ברשימת הניטור שלך.")
+
+        # 1. עדכון כתובת האתר ואתחול הסטטוס ל-PENDING עד לסריקה הבאה
+        sites_collection.update_one(
+            {"_id": site["_id"]},
+            {"$set": {"url": new_url_str, "status": "PENDING", "last_check": None}}
+        )
+
+        # 2. עדכון הכתובת בלוגים הישנים לצורך שמירה על רציפות הגרפים
+        checks_collection.update_many(
+            {"site_id": site["_id"]},
+            {"$set": {"url": new_url_str}}
+        )
+
+        # הרצת בדיקה ראשונית מיידית לכתובת החדשה
+        site["url"] = new_url_str
+        run_and_save_check(site)
+
+        logger.info(f"📝 URL updated from {old_url_str} to {new_url_str} by user {user_id_str}")
+        return {"status": "SUCCESS", "message": "כתובת האתר עודכנה בהצלחה והופעלה סריקה ראשונית לכתובת החדשה."}
+
+    except HTTPException as http_ex:
+        raise http_ex
+    except Exception as e:
+        logger.error(f"❌ Error in update_site endpoint: {e}")
+        raise HTTPException(status_code=500, detail=f"שגיאה פנימית בעדכון האתר: {str(e)}")
+    
 
 if __name__ == "__main__":
     import uvicorn

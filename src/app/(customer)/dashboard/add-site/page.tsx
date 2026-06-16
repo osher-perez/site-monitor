@@ -50,40 +50,49 @@ function AddSiteContent() {
     e.preventDefault();
     if (isMaxedOut) return;
 
-    setMessage("🔍 בודק את סטטוס האתר ומקשר לחשבון...");
+    setMessage("🔍 שומר את האתר במערכת ומריץ סריקה ראשונית...");
     setIsLoading(true);
 
     try {
       if (!finalUserId) {
-        throw new Error("מזהה משתמש לא נמצא");
+        throw new Error("מזהה משתמש לא נמצא במערכת, אנא התחבר מחדש.");
       }
 
-      // שליחת הבקשה עם ה-ID הנכון (של הלקוח או המשתמש המקורי)
-      const res = await fetch(
-        `http://localhost:8000/check?url=${encodeURIComponent(url)}&user_id=${finalUserId}`
-      );
-      
-      if (!res.ok) throw new Error("השרת החזיר שגיאה בתהליך השמירה");
-      
+      const res = await fetch("http://localhost:8000/add-site", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          url: url.trim(),
+          user_id: finalUserId.trim(),
+        }),
+      });
+
       const data = await res.json();
-      
-      setMessage(
-        data.status === "UP"
-          ? "✅ האתר נבדק, נמצא תקין ונוסף בהצלחה לניטור!"
-          : "⚠️ האתר נוסף לניטור, אך נראה שהוא כרגע למטה או חסום."
-      );
-      
+
+      if (!res.ok) {
+        throw new Error(data.detail || "השרת החזיר שגיאה בתהליך השמירה");
+      }
+
+      setMessage("✅ האתר נוסף בהצלחה לניטור והופעלה סריקה ראשונית!");
       setUrl("");
-      
-      // ניתוח חזרה אוטומטי לדשבורד הנכון לאחר 2 שניות
+
       setTimeout(() => {
         const backUrl = isAdminAction ? `/dashboard?viewAs=${impersonatedUserId}` : "/dashboard";
         router.push(backUrl);
       }, 2000);
 
-    } catch (err) {
+    // ✅ תיקון קריטי: מעבר מ-any ל-unknown וביצוע Type Guarding תקני
+    } catch (err: unknown) {
       console.error("Add Site Error:", err);
-      setMessage("❌ שגיאה בחיבור לשרת או שהאתר כבר קיים במערכת");
+      
+      let friendlyMessage = "שגיאה בחיבור לשרת או שהאתר כבר קיים במערכת";
+      if (err instanceof Error) {
+        friendlyMessage = err.message;
+      }
+      
+      setMessage(`❌ ${friendlyMessage}`);
     } finally {
       setIsLoading(false);
     }

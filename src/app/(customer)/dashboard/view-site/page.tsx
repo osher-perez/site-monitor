@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 
 interface HistoryLog {
@@ -27,36 +27,33 @@ function getCookie(name: string): string | null {
 
 function ViewSiteContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const siteUrl = searchParams.get("url");
-  const viewAsId = searchParams.get("viewAs"); // זיהוי האם אדמין צופה בדף זה
+  const viewAsId = searchParams.get("viewAs");
 
   const [stats, setStats] = useState<SiteStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isImpersonating, setIsImpersonating] = useState(false);
 
+  // סטייטס חדשים לניהול עריכה ומחיקה
+  const [isEditing, setIsEditing] = useState(false);
+  const [editUrl, setEditUrl] = useState("");
+  const [actionLoading, setActionLoading] = useState(false);
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
+
+  const loggedInUserId = getCookie("userId");
+  const userRole = getCookie("userRole");
+  const isAdminAction = !!(viewAsId && (userRole === "admin" || loggedInUserId === "admin"));
+  const targetUserId = isAdminAction ? viewAsId : loggedInUserId;
+
   useEffect(() => {
-    // ✅ תיקון אסינכרוני למניעת Cascading Renders במקרה של שגיאת קישור
     if (!siteUrl) {
       setTimeout(() => {
         setErrorMsg("❌ שגיאה: כתובת האתר לא צוינה בקישור.");
         setLoading(false);
       }, 0);
       return;
-    }
-
-    const loggedInUserId = getCookie("userId");
-    const userRole = getCookie("userRole");
-    
-    // קביעת מזהה המשתמש הנכון מול הפייתון בהתאם לרמת האבטחה
-    let targetUserId = loggedInUserId;
-
-    if (viewAsId && (userRole === "admin" || loggedInUserId === "admin")) {
-      targetUserId = viewAsId;
-      // עטיפה אסינכרונית למניעת אזהרות רנדור
-      setTimeout(() => {
-        setIsImpersonating(true);
-      }, 0);
     }
 
     if (!targetUserId) {
@@ -67,7 +64,12 @@ function ViewSiteContent() {
       return;
     }
 
-    // פנייה לפייתון עם ה-targetUserId המוצלב והמאובטח
+    if (isAdminAction) {
+      setTimeout(() => {
+        setIsImpersonating(true);
+      }, 0);
+    }
+
     fetch(`http://localhost:8000/site-history?url=${encodeURIComponent(siteUrl)}&user_id=${targetUserId}`)
       .then((res) => {
         if (!res.ok) throw new Error("נכשל בטעינת היסטוריית האתר מהשרת");
@@ -75,17 +77,84 @@ function ViewSiteContent() {
       })
       .then((data) => {
         setStats(data);
+        setEditUrl(data.url);
         setLoading(false);
       })
-      .catch((err) => {
+      .catch((err: unknown) => {
         console.error("Fetch Site History Error:", err);
         setErrorMsg("לא ניתן ליצור קשר עם שרת הניטור או שהנתונים אינם קיימים.");
         setLoading(false);
       });
-  }, [siteUrl, viewAsId]);
+  }, [siteUrl, targetUserId, isAdminAction]);
 
-  // בניית נתיב חזרה חכם ששומר על רצף התמיכה של האדמין
   const backLink = isImpersonating ? `/dashboard?viewAs=${viewAsId}` : "/dashboard";
+
+  // 🗑️ לוגיקת מחיקת האתר מהמערכת
+  const handleDeleteSite = async () => {
+    if (!window.confirm("🚨 האם אתה בטוח שברצונך למחוק אתר זה ואת כל היסטוריית הלוגים שלו? פעולה זו אינה הפיכה!")) return;
+    if (!siteUrl || !targetUserId) return;
+
+    setActionLoading(true);
+    setActionMessage("🧹 מוחק את האתר ונתוני הבדיקות מהשרת...");
+
+    try {
+      const res = await fetch(`http://localhost:8000/delete-site?url=${encodeURIComponent(siteUrl)}&user_id=${targetUserId}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data.detail || "נכשל בתהליך המחיקה מהשרת");
+
+      setActionMessage("✅ האתר נמחק בהצלחה! מחזיר אותך לדשבורד...");
+      setTimeout(() => {
+        router.push(backLink);
+      }, 1500);
+
+    } catch (err: unknown) {
+      console.error("Delete Site Error:", err);
+      const errMsg = err instanceof Error ? err.message : "שגיאה בתקשורת מול השרת";
+      setActionMessage(`❌ שגיאה: ${errMsg}`);
+      setActionLoading(false);
+    }
+  };
+
+  // 📝 לוגיקת עריכת כתובת ה-URL
+  const handleUpdateSite = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!siteUrl || !targetUserId || !editUrl.trim()) return;
+
+    setActionLoading(true);
+    setActionMessage("📝 מעדכן את כתובת האתר ומריץ סריקה ראשונית...");
+
+    try {
+      const res = await fetch("http://localhost:8000/update-site", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          old_url: siteUrl.trim(),
+          new_url: editUrl.trim(),
+          user_id: targetUserId.trim(),
+        }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data.detail || "נכשל בתהליך העדכון בשרת");
+
+      setActionMessage("✅ הכתובת עודכנה בהצלחה! מרענן נתונים...");
+      setTimeout(() => {
+        setIsEditing(false);
+        setActionMessage(null);
+        setActionLoading(false);
+        router.push(`${isImpersonating ? `/dashboard/view-site?url=${encodeURIComponent(editUrl.trim())}&viewAs=${viewAsId}` : `/dashboard/view-site?url=${encodeURIComponent(editUrl.trim())}`}`);
+      }, 1500);
+
+    } catch (err: unknown) {
+      console.error("Update Site Error:", err);
+      const errMsg = err instanceof Error ? err.message : "שגיאה בתקשורת מול השרת";
+      setActionMessage(`❌ שגיאה: ${errMsg}`);
+      setActionLoading(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -121,16 +190,69 @@ function ViewSiteContent() {
         </div>
       )}
 
-      {/* כפתור חזרה וכותרת ראשית */}
-      <div>
-        <Link href={backLink} className="text-gray-400 hover:text-gray-900 mb-4 inline-block text-sm transition-all">
-          ← חזרה לכל האתרים
-        </Link>
-        <h1 className="text-2xl font-black text-gray-950 truncate tracking-tight font-mono">
-          {stats.url.replace("https://", "").replace("http://", "")}
-        </h1>
-        <p className="text-xs text-gray-400 mt-1">אנליטיקה, יציבות וזמני תגובה בזמן אמת</p>
+      {/* 🛠️ סרגל כלים עליון לפעולות עריכה ומחיקה */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-gray-100 pb-6">
+        <div>
+          <Link href={backLink} className="text-gray-400 hover:text-gray-900 mb-2 inline-block text-sm transition-all">
+            ← חזרה לכל האתרים
+          </Link>
+          <h1 className="text-2xl font-black text-gray-950 truncate tracking-tight font-mono">
+            {stats.url.replace("https://", "").replace("http://", "")}
+          </h1>
+          <p className="text-xs text-gray-400 mt-0.5">אנליטיקה, יציבות וניהול הגדרות בזמן אמת</p>
+        </div>
+
+        <div className="flex items-center gap-3 self-start sm:self-auto">
+          <button
+            onClick={() => { setIsEditing(!isEditing); setActionMessage(null); }}
+            disabled={actionLoading}
+            className="bg-white hover:bg-gray-50 text-gray-800 border border-gray-200 px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-2xs disabled:opacity-40"
+          >
+            {isEditing ? "ביטול עריכה" : "📝 ערוך URL"}
+          </button>
+          <button
+            onClick={handleDeleteSite}
+            disabled={actionLoading}
+            className="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-100 px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-2xs disabled:opacity-40"
+          >
+            🗑️ מחק אתר
+          </button>
+        </div>
       </div>
+
+      {/* 📝 חלונית עריכת הכתובת הדינמית */}
+      {isEditing && (
+        <div className="bg-gray-50 border border-gray-200 p-5 rounded-2xl animate-in slide-in-from-top-2 duration-200">
+          <form onSubmit={handleUpdateSite} className="flex flex-col sm:flex-row items-end gap-4">
+            <div className="flex-1 w-full">
+              <label className="block text-xs font-bold text-gray-500 mb-1.5">עדכן כתובת URL לניטור:</label>
+              <input
+                type="url"
+                required
+                disabled={actionLoading}
+                value={editUrl}
+                onChange={(e) => setEditUrl(e.target.value)}
+                className="w-full p-2.5 bg-white border border-gray-200 rounded-xl text-sm font-mono focus:outline-none focus:border-gray-300 text-left"
+                dir="ltr"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={actionLoading}
+              className="bg-gray-950 hover:bg-gray-800 text-white px-5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-sm w-full sm:w-auto"
+            >
+              שמור שינויים
+            </button>
+          </form>
+        </div>
+      )}
+
+      {/* הודעות חיווי לפעולות CRUD */}
+      {actionMessage && (
+        <div className="p-3 bg-gray-900 text-white font-mono text-center text-xs rounded-xl shadow-md">
+          {actionMessage}
+        </div>
+      )}
 
       {/* 📊 כרטיסי מונים גדולים */}
       <div className="grid gap-6 grid-cols-1 sm:grid-cols-2">
