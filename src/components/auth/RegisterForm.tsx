@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { registerUserAction, loginUserAction, checkEmailAction } from "@/app/actions/auth";
 
-// 🛡️ הגדרת הטיפוס לקבלת מצב אדמין דינמי מאב האפליקציה
 interface RegisterFormProps {
   isAdminMode?: boolean;
 }
@@ -44,14 +43,13 @@ export const RegisterForm = ({ isAdminMode = false }: RegisterFormProps) => {
       setFormData(prev => ({ ...prev, email: cleanedEmail }));
 
       if (result.exists) {
-        setStep("login"); // המשתמש קיים -> מעבר חלק למסך סיסמה
+        setStep("login");
       } else {
-        // 🛡️ מניעת באג הרשמה: אם מדובר בשער אדמין, לא מאפשרים הרשמה של משתמש חדש
         if (isAdminMode) {
           setErrorMessage("🚫 שגיאה: משתמש זה אינו רשום כמנהל מערכת.");
           return;
         }
-        setStep("register"); // משתמש חדש -> פותחים טופס הרשמה ללקוח
+        setStep("register");
       }
     } catch (error) {
       setErrorMessage("לא ניתן להתחבר לשרת לצורך בדיקת הנתונים");
@@ -69,7 +67,6 @@ export const RegisterForm = ({ isAdminMode = false }: RegisterFormProps) => {
     if (step === "register") {
       const result = await registerUserAction(formData);
       if (result.success) {
-        // ✅ סנכרון ניתוב: לקוח חדש נשלח ישירות לדשבורד האישי שלו
         router.push("/dashboard");
       } else {
         setErrorMessage(result.error || "שגיאה בתהליך ההרשמה");
@@ -77,7 +74,6 @@ export const RegisterForm = ({ isAdminMode = false }: RegisterFormProps) => {
     } else if (step === "login") {
       const result = await loginUserAction(formData);
       if (result.success) {
-        // ✅ תיקון קריטי: ניתוב מבוסס userRole התואם במדויק ל-Middleware
         if (result.userRole === "admin" || isAdminMode) {
           router.push("/admin-panel");
         } else {
@@ -110,14 +106,14 @@ export const RegisterForm = ({ isAdminMode = false }: RegisterFormProps) => {
       {/* כותרת ותת-כותרת משתנות בהתאם לשלב ולתפקיד */}
       <div className="mb-6">
         <h2 className="text-xl font-black tracking-tight text-gray-950 mb-1">
-          {step === "email" && (isAdminMode ? "אימות מנהל מערכת" : "ברוכים הבאים ל-SiteMonitor")}
+          {step === "email" && (isAdminMode ? "אימות מנהל מערכת" : "כניסת משתמש / הרשמה")}
           {step === "login" && "התחברות לחשבון"}
           {step === "register" && "יצירת חשבון מנטר"}
         </h2>
         <p className="text-xs text-gray-400 font-medium leading-relaxed">
-          {step === "email" && (isAdminMode ? "הזן את כתובת המייל הייעודית של צוות הניהול." : "הזן אימייל ונזהה אוטומטית אם יש לך חשבון או שאתה משתמש חדש.")}
-          {step === "login" && `ברוך השב! אנא הקלד את הסיסמה עבור ${formData.email}`}
-          {step === "register" && "נראה שאתה פה בפעם הראשונה! נשמח להכיר אותך ונפתח עבורך חשבון."}
+          {step === "email" && (isAdminMode ? "הזן את כתובת המייל הייעודית של צוות הניהול." : "Sign up / In")}
+          {step === "login" && `ברוך השב! אנא הזן סיסמה להמשך עבור ${formData.email}`}
+          {step === "register" && "נראה שאתה פה בפעם הראשונה! השלם את פרטי הרישום."}
         </p>
       </div>
 
@@ -210,7 +206,7 @@ export const RegisterForm = ({ isAdminMode = false }: RegisterFormProps) => {
 
           <div>
             <label className="block text-xs font-bold uppercase tracking-wide text-gray-500 mb-1.5">
-              {step === "login" ? "הזן את הסיסמה שלך" : "קבע סיסמה לחשבון החדש"}
+              {step === "login" ? "הזן את סיסמה שלך" : "קבע סיסמה לחשבון החדש"}
             </label>
             <input
               type="password"

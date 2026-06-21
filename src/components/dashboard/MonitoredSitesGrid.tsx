@@ -17,12 +17,16 @@ interface MonitoredSitesGridProps {
 export const MonitoredSitesGrid = ({ sites, isImpersonating, viewAsId }: MonitoredSitesGridProps) => {
   if (sites.length === 0) {
     return (
-      <div className="bg-white p-12 rounded-3xl text-center border border-gray-100 shadow-sm text-right" dir="rtl">
-        <p className="text-gray-400 text-sm italic font-medium mb-4">
-          אין עדיין אתרים תחת החשבון שלך. הגיע הזמן להוסיף את האתר הראשון!
+      // ✅ תיקון הסתירה העיצובית: יישור אחיד וממורכז של ה-Empty State ברמת חוויית משתמש נקייה
+      <div className="bg-white p-12 rounded-3xl text-center border border-gray-100 shadow-sm" dir="rtl">
+        <p className="text-gray-400 text-xs font-mono mb-4">
+          לא נמצאו כתובות אתר (URLs) פעילות תחת חשבון זה.
         </p>
-        <Link href={isImpersonating ? `/dashboard/add-site?userId=${viewAsId}` : "/dashboard/add-site"} className="text-blue-600 hover:underline text-xs font-black">
-          לחץ כאן להוספת האתר הראשון ←
+        <Link 
+          href={isImpersonating ? `/dashboard/add-site?userId=${viewAsId}` : "/dashboard/add-site"} 
+          className="text-blue-600 hover:underline text-xs font-bold"
+        >
+          הגדרת אתר לניטור ראשוני ←
         </Link>
       </div>
     );
@@ -42,6 +46,7 @@ export const MonitoredSitesGrid = ({ sites, isImpersonating, viewAsId }: Monitor
                 {site.url.replace("https://", "").replace("http://", "")}
               </h3>
 
+              {/* תוויות סטטוס הנדסיות ומאופקות */}
               <span
                 className={`px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 ${
                   site.status === "UP"
@@ -50,12 +55,12 @@ export const MonitoredSitesGrid = ({ sites, isImpersonating, viewAsId }: Monitor
                 }`}
               >
                 <span className={`w-1.5 h-1.5 rounded-full ${site.status === "UP" ? "bg-emerald-500 animate-pulse" : "bg-rose-500"}`} />
-                {site.status === "UP" ? "תקין" : "למטה"}
+                {site.status === "UP" ? "פעיל" : "ללא תגובה"}
               </span>
             </div>
 
             <div className="border-t border-gray-50 pt-4 flex justify-between items-center text-gray-400 text-[11px] font-medium">
-              <span className="text-blue-600 group-hover:underline">נתוני ניטור מורחבים ←</span>
+              <span className="text-blue-600 group-hover:underline">אנליטיקה וסטטיסטיקה ←</span>
               <span className="text-gray-400 font-mono">
                 {site.last_checked ? new Date(site.last_checked).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" }) : "---"}
               </span>

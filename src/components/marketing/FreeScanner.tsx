@@ -22,7 +22,6 @@ export const FreeScanner = () => {
     setResult(null);
     
     try {
-      // פנייה לשרת הפייתון הציבורי לבדיקה מהירה
       const response = await fetch(`http://localhost:8000/tools/quick-scan?url=${encodeURIComponent(url)}`);
       const data = await response.json();
 
@@ -62,10 +61,10 @@ export const FreeScanner = () => {
         {/* כותרת האזור */}
         <div className="text-center mb-8">
           <h2 className="text-2xl font-black tracking-tight text-gray-900 mb-2">
-            בדיקת אבחון מהירה בחינם
+            אבחון זמינות ותשתית בזמן אמת
           </h2>
-          <p className="text-sm text-gray-500 font-medium max-w-md mx-auto">
-            הזן כתובת אתר ותקבל ניתוח מיידי של סטטוס השרת, מהירות התגובה הראשונית ותקינות תעודת ה-SSL.
+          <p className="text-sm text-gray-500 font-medium max-w-md mx-auto leading-relaxed">
+            הזן כתובת אתר (URL) לקבלת דוח מיידי על סטטוס השרת, זמני תגובה ראשוניים ותקינות פרוטוקול ה-SSL.
           </p>
         </div>
         
@@ -84,16 +83,16 @@ export const FreeScanner = () => {
             disabled={isScanning}
             className="bg-blue-600 text-white px-8 py-4 rounded-xl text-sm font-bold hover:bg-blue-500 transition-all shadow-md active:scale-95 disabled:bg-blue-400 whitespace-nowrap"
           >
-            {isScanning ? 'סורק נתונים...' : 'הרץ בדיקת מומחה'}
+            {isScanning ? 'מבצע אבחון...' : 'הפעל סריקת אבחון'}
           </button>
         </form>
 
-        {/* אנימציית טעינה - תוקן קלאס הגבולות */}
+        {/* אנימציית טעינה */}
         {isScanning && (
           <div className="mt-8 flex flex-col items-center gap-3 animate-pulse">
             <div className="w-7 h-7 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
             <p className="text-xs text-blue-600 font-bold tracking-wide">
-              מנתח הגדרות אבטחה, בודק תגובת DNS ומודד זמני תגובה בזמן אמת...
+              יוצר קשר עם שרת היעד, מנתח תגובת DNS ומודד זמני תגובה בזמן אמת...
             </p>
           </div>
         )}
