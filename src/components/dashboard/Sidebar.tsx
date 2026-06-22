@@ -16,6 +16,9 @@ export const Sidebar = () => {
   const pathname = usePathname();
   const router = useRouter();
   const [isAdmin, setIsAdmin] = useState(false);
+  
+  // 🔔 מוק זמני למונה הודעות שלא נקראו (יוחלף בהמשך ב-State או Fetch מה-API)
+  const [unreadCount, setUnreadCount] = useState(3);
 
   useEffect(() => {
     const userRole = getCookie("userRole"); 
@@ -52,7 +55,7 @@ export const Sidebar = () => {
         </Link>
       </div>
 
-      {/* ניווט מערכתי ללא אימוג'יז מסיחים */}
+      {/* ניווט מערכתי */}
       <nav className="space-y-1.5 grow">
         
         <Link
@@ -64,6 +67,25 @@ export const Sidebar = () => {
           }`}
         >
           מרכז בקרה
+        </Link>
+
+        {/* 🔔 כפתור ניווט חדש: יומן התראות הכולל את הפעמון והנקודה האדומה החכמה */}
+        <Link
+          href="/dashboard/alerts"
+          className={`flex items-center justify-between px-4 py-3 rounded-xl text-xs font-bold tracking-wide transition-all border ${
+            isActive("/dashboard/alerts")
+              ? "bg-blue-50 border-blue-100 text-blue-600"
+              : "border-transparent text-gray-500 hover:bg-gray-50 hover:text-gray-900"
+          }`}
+        >
+          <span>יומן התראות</span>
+          
+          {/* חיווי ויזואלי של מונה ההודעות רק במידה ויש כאלו */}
+          {unreadCount > 0 && (
+            <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-600 px-1.5 text-[9px] font-black font-mono text-white ring-2 ring-white animate-pulse">
+              {unreadCount > 99 ? "99+" : unreadCount}
+            </span>
+          )}
         </Link>
 
         <Link
