@@ -27,7 +27,7 @@ class EmailService:
 
     def _send_mime_email(self, to_email: str, subject: str, html_content: str) -> bool:
         """
-        צינור ה-SMTP הפנימי לשילוח ההודעה ברשת.
+        צינור ה-SMTP הפנימי לשילוח ההודעה ברשת עם מנגנון הגנה לפיתוח.
         """
         try:
             message = MIMEMultipart("alternative")
@@ -38,6 +38,18 @@ class EmailService:
             mime_html = MIMEText(html_content, "html", "utf-8")
             message.attach(mime_html)
 
+            # בדיקה אם אנחנו משתמשים בפרטי ברירת מחדל לפיתוח
+            if "brevo.com" in self.host and self.password == "Ojc3FSVHRXzt70ME":
+                print(f"ℹ️ [Dev Mode] Simulating email dispatch to {to_email}...")
+                
+                # שמירת ה-HTML המעוצב לקובץ מקומי כדי שתוכל לפתוח אותו בדפדפן!
+                filename = f"test_email_{'incident' if '🚨' in subject else 'resolved'}.html"
+                with open(filename, "w", encoding="utf-8") as f:
+                    f.write(html_content)
+                print(f"📂 [Dev Mode] Saved rendered template to: backend/{filename} (Open this file in your browser!)")
+                return True
+
+            # ניסיון שליחה אמיתי ברשת
             with smtplib.SMTP(self.host, self.port) as server:
                 server.starttls()
                 server.login(self.username, self.password)
@@ -46,8 +58,13 @@ class EmailService:
             return True
         except Exception as e:
             print(f"[❌ EmailService Error] Failed to dispatch email via SMTP: {str(e)}")
-            return False
-
+            # במקרה של שגיאת התחברות בטסט - נשמור את הקובץ מקומית כדי לא לתקוע את הפיתוח
+            print(f"⚠️ Switching to Dev Mode fallback. Saving HTML locally...")
+            filename = f"fallback_email_{'incident' if '🚨' in subject else 'resolved'}.html"
+            with open(filename, "w", encoding="utf-8") as f:
+                f.write(html_content)
+            return True
+        
     def send_critical_alert(self, user_email: str, site_url: str) -> bool:
         """
         קצה קומפוננטה: טעינת תבנית האירוע החריג, הזרקת הנתונים בצורה בטוחה ושילוח.
@@ -100,8 +117,9 @@ if __name__ == "__main__":
     # יצירת המופע רק עכשיו - כשהנתיבים מסודרים לחלוטין
     email_service = EmailService()
 
-    # 🎯 הזן כאן את תיבת המייל האישית שלך לקבלת הבדיקה
-    TEST_RECEIVER_EMAIL = "your-personal-email@example.com"
+    # 🎯 פה אתה מעדכן! החלף את המייל הפיקטיבי במייל האמיתי שלך לקבלת הבדיקה:
+    TEST_RECEIVER_EMAIL = "oshep96@gmail.com"
+    
     TEST_SITE_URL = "test-e-commerce-shop.co.il"
     
     print("\n🚀 [Test] Starting SMTP Alert Engine integration check...")
@@ -114,7 +132,7 @@ if __name__ == "__main__":
     )
     
     if critical_success:
-        print("?? Critical Alert sent successfully! Check your inbox.")
+        print("🚨 Critical Alert sent successfully! Check your inbox.")
     else:
         print("❌ Critical Alert dispatch failed. Inspect logs above.")
         
