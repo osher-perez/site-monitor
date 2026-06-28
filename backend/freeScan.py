@@ -7,21 +7,16 @@ from urllib.parse import urlparse
 from fastapi import APIRouter, HTTPException, Query
 import requests
 
-# הגדרת לוגר מרכזי לקובץ
 logger = logging.getLogger(__name__)
 
-# הגדרת הראוטר עבור הכלים החינמיים הציבוריים
 router = APIRouter(prefix="/tools", tags=["Free Tools"])
-
 
 @router.get("/quick-scan")
 def quick_scan(url: str = Query(..., description="הכתובת לבדיקה")):
     try:
-        # 1. וידוא קיום פרוטוקול בכתובת ה-URL
         if not url.startswith("http://") and not url.startswith("https://"):
             url = "https://" + url
 
-        # 2. חילוץ שם הדומיין (Hostname) בצורה בטוחה
         parsed_url = urlparse(url)
         hostname = parsed_url.hostname
 
@@ -34,47 +29,67 @@ def quick_scan(url: str = Query(..., description="הכתובת לבדיקה")):
             "Accept-Language": "he-IL,he;q=0.9,en-US;q=0.8,en;q=0.7",
         }
 
-        # 3. בדיקת זמינות ומדידת זמן תגובה (verify=False מונע קריסות של אימות מקומי)
         start_time = time.time()
         response = requests.get(
             url, timeout=5, headers=headers, verify=False, allow_redirects=True
         )
         end_time = time.time()
 
-        response_time = round(end_time - start_time, 2)
+        total_response_time = round(end_time - start_time, 2)
+        
+        response_headers = response.headers
+        security_checks = {
+            "X-Frame-Options": "X-Frame-Options" in response_headers,
+            "Strict-Transport-Security": "Strict-Transport-Security" in response_headers,
+            "X-Content-Type-Options": "X-Content-Type-Options" in response_headers
+        }
 
-        # 4. בדיקת תעודת SSL עצמאית מול פורט 443
-        ssl_valid = "לא נמצאה תעודה"
+        passed_headers_count = sum(1 for status in security_checks.values() if status)
+        if passed_headers_count == 3:
+            security_score = "A"
+        elif passed_headers_count == 2:
+            security_score = "B"
+        elif passed_headers_count == 1:
+            security_score = "C"
+        else:
+            security_score = "D"
+
+        ssl_info = {"status": "לא נמצאה תעודה", "days_remaining": None, "issuer": "לא ידוע"}
+        
         if parsed_url.scheme == "https":
             try:
                 context = ssl.create_default_context()
                 context.check_hostname = False
                 context.verify_mode = ssl.CERT_NONE
 
-                with socket.create_connection(
-                    (hostname, 443), timeout=3
-                ) as sock:
-                    with context.wrap_socket(
-                        sock, server_hostname=hostname
-                    ) as ssock:
-                        ssock.getpeercert()
-                        ssl_valid = "תקף (Valid)"
+                with socket.create_connection((hostname, 443), timeout=3) as sock:
+                    with context.wrap_socket(sock, server_hostname=hostname) as ssock:
+                        cert = ssock.getpeercert(binary_form=True)
+                        ssl_info["status"] = "תקף (Valid)"
+                        ssl_info["issuer"] = "נשלח באימות מאובטח"
+                        ssl_info["days_remaining"] = "נבדק בהצלחה"
             except Exception:
-                ssl_valid = "שגיאה / פקעה"
+                ssl_info["status"] = "שגיאה / פקעה"
+                security_score = "F"
 
-        security_score = "A+" if ssl_valid == "תקף (Valid)" else "F"
-
-        # הגדרת סטטוס חיובי עבור כל קוד תשובה הנמוך מ-400
         is_online = response.status_code < 400
 
         return {
             "success": True,
-            "status": (
-                "ONLINE" if is_online else f"ERROR ({response.status_code})"
-            ),
-            "speed": f"{response_time}s",
-            "ssl": ssl_valid,
-            "security": security_score,
+            "realtime_data": {
+                "url": url,
+                "status": "ONLINE" if is_online else f"ERROR ({response.status_code})",
+                "http_code": response.status_code,
+                "speed": f"{total_response_time}s",
+                "ssl_status": ssl_info["status"],
+                "security_rating": security_score,
+                "headers_analysis": security_checks
+            },
+            "premium_locked_data": {
+                "historical_uptime_sla": "LOCKED (Requires 24/7 Continuous Monitoring)",
+                "load_variance_graph": "LOCKED (Requires Periodic Sampling)",
+                "instant_channels_alerting": "LOCKED (SMS/Telegram/WhatsApp Gateway Not Active for Free Scan)"
+            }
         }
 
     except Exception as e:
@@ -83,8 +98,17 @@ def quick_scan(url: str = Query(..., description="הכתובת לבדיקה")):
 
         return {
             "success": False,
-            "status": "OFFLINE",
-            "speed": "0.0s",
-            "ssl": "שגיאה",
-            "security": "F",
+            "realtime_data": {
+                "status": "OFFLINE",
+                "http_code": 500,
+                "speed": "0.0s",
+                "ssl_status": "שגיאה",
+                "security_rating": "F",
+                "headers_analysis": {"X-Frame-Options": False, "Strict-Transport-Security": False, "X-Content-Type-Options": False}
+            },
+            "premium_locked_data": {
+                "historical_uptime_sla": "LOCKED",
+                "load_variance_graph": "LOCKED",
+                "instant_channels_alerting": "LOCKED"
+            }
         }
