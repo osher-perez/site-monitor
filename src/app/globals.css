@@ -1,22 +1,27 @@
 @import "tailwindcss";
 
 :root {
-  /* רקע לבן נקי וטקסט כהה ומקצועי */
-  --background: #ffffff;
-  --foreground: #111827; /* אפור כהה מאוד (Slate-900) במקום שחור סינתטי */
+--background: #ffffff;
+--foreground: #111827;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Roboto Mono, monospace;
+--color-background: var(--background);
+--color-foreground: var(--foreground);
+--font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+--font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Roboto Mono, monospace;
 }
 
 body {
-  background-color: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-sans); 
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+background-color: var(--background);
+color: var(--foreground);
+font-family: var(--font-sans);
+-webkit-font-smoothing: antialiased;
+-moz-osx-font-smoothing: grayscale;
+}
+
+/* הגדרת פוקוס ברורה לנגישות */
+:focus {
+outline: 2px solid #3b82f6;
+outline-offset: 2px;
 }
