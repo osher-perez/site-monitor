@@ -76,7 +76,17 @@ function ViewSiteContent() {
         return res.json();
       })
       .then((data) => {
-        setStats(data);
+        // התאמה לפורמט השרת - חישוב דינמי זמני אם השדות חסרים בשרת
+        const uptime = data.uptime_percentage !== undefined ? data.uptime_percentage : 100;
+        const avgTime = data.average_response_time !== undefined ? data.average_response_time : 
+          (data.history?.length ? round(data.history.reduce((acc: number, log: HistoryLog) => acc + log.response_time, 0) / data.history.length) : 0);
+
+        setStats({
+          url: data.url,
+          uptime_percentage: uptime,
+          average_response_time: avgTime,
+          history: data.history || []
+        });
         setEditUrl(data.url);
         setLoading(false);
       })
@@ -87,6 +97,7 @@ function ViewSiteContent() {
       });
   }, [siteUrl, targetUserId, isAdminAction]);
 
+  const round = (num: number) => Math.round(num);
   const backLink = isImpersonating ? `/dashboard?viewAs=${viewAsId}` : "/dashboard";
 
   // 🗑️ לוגיקת מחיקת האתר מהמערכת
@@ -124,7 +135,7 @@ function ViewSiteContent() {
     if (!siteUrl || !targetUserId || !editUrl.trim()) return;
 
     setActionLoading(true);
-    setActionMessage("📝 מעדכן את כתובת האתר ומריץ סריקה ראשונית...");
+    setActionMessage("📝 מעדכן את כתובת האתר ומריץ סריקהראשונית...");
 
     try {
       const res = await fetch("http://localhost:8000/update-site", {
@@ -167,7 +178,7 @@ function ViewSiteContent() {
   if (errorMsg || !stats) {
     return (
       <div className="max-w-2xl mx-auto" dir="rtl">
-        <Link href={backLink} className="text-gray-400 hover:text-gray-900 mb-6 inline-block text-sm">
+        <Link href={backLink} className="text-gray-400 hover:text-gray-900 mb-6 inline-block text-sm transition-transform duration-200 hover:translate-x-1">
           ← חזרה ל-Dashboard
         </Link>
         <div className="bg-red-50 p-6 rounded-2xl text-center border border-red-100">
@@ -182,9 +193,9 @@ function ViewSiteContent() {
       
       {/* ⚠️ באנר התראת מצב אדמין */}
       {isImpersonating && (
-        <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl flex justify-between items-center text-amber-900 text-xs font-bold shadow-sm">
+        <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl flex justify-between items-center text-amber-900 text-xs font-bold shadow-sm animate-in slide-in-from-top-2">
           <span>👀 פנל ניהול: צפייה באנליטיקה של לקוח מנוהל</span>
-          <Link href={`/dashboard?viewAs=${viewAsId}`} className="bg-amber-600 hover:bg-amber-700 text-white px-3 py-1.5 rounded-xl transition-all">
+          <Link href={`/dashboard?viewAs=${viewAsId}`} className="bg-amber-600 hover:bg-amber-700 text-white px-3 py-1.5 rounded-xl transition-all active:scale-95">
             חזרה לדשבורד המנוהל ←
           </Link>
         </div>
@@ -193,7 +204,7 @@ function ViewSiteContent() {
       {/* 🛠️ סרגל כלים עליון לפעולות עריכה ומחיקה */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-gray-100 pb-6">
         <div>
-          <Link href={backLink} className="text-gray-400 hover:text-gray-900 mb-2 inline-block text-sm transition-all">
+          <Link href={backLink} className="text-gray-400 hover:text-gray-950 mb-2 inline-block text-sm transition-all hover:translate-x-1">
             ← חזרה לכל האתרים
           </Link>
           <h1 className="text-2xl font-black text-gray-950 truncate tracking-tight font-mono">
@@ -206,14 +217,14 @@ function ViewSiteContent() {
           <button
             onClick={() => { setIsEditing(!isEditing); setActionMessage(null); }}
             disabled={actionLoading}
-            className="bg-white hover:bg-gray-50 text-gray-800 border border-gray-200 px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-2xs disabled:opacity-40"
+            className="bg-gray-50 hover:bg-indigo-50 border border-gray-200 hover:border-indigo-100 text-gray-700 hover:text-indigo-600 px-4 py-2 rounded-xl text-xs font-bold transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-2xs disabled:opacity-40"
           >
             {isEditing ? "ביטול עריכה" : "📝 ערוך URL"}
           </button>
           <button
             onClick={handleDeleteSite}
             disabled={actionLoading}
-            className="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-100 px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-2xs disabled:opacity-40"
+            className="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-100 px-4 py-2 rounded-xl text-xs font-bold transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-2xs disabled:opacity-40"
           >
             🗑️ מחק אתר
           </button>
@@ -222,7 +233,7 @@ function ViewSiteContent() {
 
       {/* 📝 חלונית עריכת הכתובת הדינמית */}
       {isEditing && (
-        <div className="bg-gray-50 border border-gray-200 p-5 rounded-2xl animate-in slide-in-from-top-2 duration-200">
+        <div className="bg-white border border-indigo-100 p-5 rounded-2xl shadow-xs animate-in slide-in-from-top-2 duration-200">
           <form onSubmit={handleUpdateSite} className="flex flex-col sm:flex-row items-end gap-4">
             <div className="flex-1 w-full">
               <label className="block text-xs font-bold text-gray-500 mb-1.5">עדכן כתובת URL לניטור:</label>
@@ -232,14 +243,15 @@ function ViewSiteContent() {
                 disabled={actionLoading}
                 value={editUrl}
                 onChange={(e) => setEditUrl(e.target.value)}
-                className="w-full p-2.5 bg-white border border-gray-200 rounded-xl text-sm font-mono focus:outline-none focus:border-gray-300 text-left"
+                className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-mono focus:outline-none focus:border-indigo-300 focus:bg-white text-left"
+                placeholder="ltr"
                 dir="ltr"
               />
             </div>
             <button
               type="submit"
               disabled={actionLoading}
-              className="bg-gray-950 hover:bg-gray-800 text-white px-5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-sm w-full sm:w-auto"
+              className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl text-xs font-bold transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-sm w-full sm:w-auto"
             >
               שמור שינויים
             </button>
@@ -249,7 +261,7 @@ function ViewSiteContent() {
 
       {/* הודעות חיווי לפעולות CRUD */}
       {actionMessage && (
-        <div className="p-3 bg-gray-900 text-white font-mono text-center text-xs rounded-xl shadow-md">
+        <div className="p-3 bg-gray-950 text-white font-mono text-center text-xs rounded-xl shadow-md border border-gray-800">
           {actionMessage}
         </div>
       )}
@@ -267,9 +279,9 @@ function ViewSiteContent() {
         <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between">
           <div>
             <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-1">זמן תגובה ממוצע</span>
-            <span className="text-3xl font-black text-blue-600 font-mono">{stats.average_response_time} <span className="text-xs font-medium text-gray-400">ms</span></span>
+            <span className="text-3xl font-black text-indigo-600 font-mono">{stats.average_response_time} <span className="text-xs font-medium text-gray-400">ms</span></span>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 font-bold flex items-center justify-center text-sm">⚡</div>
+          <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 font-bold flex items-center justify-center text-sm">⚡</div>
         </div>
       </div>
 
@@ -278,19 +290,19 @@ function ViewSiteContent() {
         <h3 className="text-sm font-bold text-gray-900 mb-6">מהירות תגובת שרת בבדיקות האחרונות (במילישניות)</h3>
         
         <div className="h-48 flex items-end justify-between gap-2 pt-6 px-2 border-b border-gray-100 font-mono">
-          {stats.history.slice(-10).map((log, index) => {
+          {stats.history.slice(-12).map((log, index) => {
             const heightPercentage = Math.min((log.response_time / 2000) * 100, 100);
             
             return (
               <div key={index} className="flex-1 flex flex-col items-center group relative h-full justify-end">
-                <div className="absolute bottom-full mb-2 bg-gray-900 text-white text-[10px] py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 whitespace-nowrap">
-                  {log.response_time} ms ({new Date(log.timestamp).toLocaleTimeString("he-IL")})
+                <div className="absolute bottom-full mb-2 bg-gray-950 text-white text-[10px] py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 whitespace-nowrap border border-gray-800 shadow-md">
+                  {log.response_time} ms ({new Date(log.timestamp).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" })})
                 </div>
                 
                 <div 
-                  style={{ height: `${heightPercentage}%` }} 
+                  style={{ height: `${heightPercentage || 5}%` }} 
                   className={`w-full rounded-t-md transition-all duration-500 group-hover:opacity-80 ${
-                    log.status === "UP" ? "bg-blue-500" : "bg-rose-500"
+                    log.status === "UP" ? "bg-indigo-500" : "bg-rose-500"
                   }`}
                 />
                 
@@ -320,8 +332,8 @@ function ViewSiteContent() {
             <tbody className="divide-y divide-gray-50">
               {stats.history.map((log, index) => (
                 <tr key={index} className="hover:bg-gray-50/30 transition-colors">
-                  <td className="p-4 text-gray-600">
-                    {new Date(log.timestamp).toLocaleString("he-IL")}
+                  <td className="p-4 text-gray-600" dir="ltr" style={{ textAlign: "right" }}>
+                    {new Date(log.timestamp).toLocaleString("he-IL", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit" })}
                   </td>
                   <td className="p-4 text-center">
                     <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
@@ -335,6 +347,13 @@ function ViewSiteContent() {
                   </td>
                 </tr>
               ))}
+              {stats.history.length === 0 && (
+                <tr>
+                  <td colSpan={3} className="p-8 text-center text-gray-400">
+                    אין נתוני היסטוריה זמינים עבור אתר זה עדיין.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

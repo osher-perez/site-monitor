@@ -84,6 +84,9 @@ export async function registerUserAction(formData: RegisterFormData) {
     const isUserAdmin = data.isAdmin || data.role === "admin" || false;
     const assignedRole = isUserAdmin ? "admin" : "customer";
     
+    // ניקוי שם המשתמש למניעת שגיאות כתיב ותצוגה
+    const finalName = (data.name || formData.name || "").trim();
+
     // שמירת מזהה המשתמש לעבודה ב-Client Side
     cookieStore.set("userId", data.userId, {
       httpOnly: false,
@@ -92,9 +95,17 @@ export async function registerUserAction(formData: RegisterFormData) {
       path: "/",
     });
 
-    // ✅ תיקון קריטי: החלפת isAdmin ב-userRole עבור תאימות מלאה ל-Middleware
+    // שמירת userRole עבור תאימות מלאה ל-Middleware
     cookieStore.set("userRole", assignedRole, {
       httpOnly: false, 
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 60 * 60 * 24 * 7,
+      path: "/",
+    });
+
+    // 🏆 שמירת שם המשתמש ישירות בקוקיז לביצועים אופטימליים בדשבורד
+    cookieStore.set("userName", finalName, {
+      httpOnly: false,
       secure: process.env.NODE_ENV === "production",
       maxAge: 60 * 60 * 24 * 7,
       path: "/",
@@ -138,6 +149,9 @@ export async function loginUserAction(formData: LoginFormData) {
     const isUserAdmin = data.isAdmin || data.role === "admin" || false;
     const assignedRole = isUserAdmin ? "admin" : "customer";
     
+    // שליפת שם נקי מהשרת, או גיבוי מהחלק הראשון של האימייל במידה והשדה חסר
+    const finalName = (data.name || data.email?.split("@")[0] || "מנטר מערכת").trim();
+
     // שמירת ה-userId בקוקיז
     cookieStore.set("userId", data.userId, {
       httpOnly: false,
@@ -146,8 +160,16 @@ export async function loginUserAction(formData: LoginFormData) {
       path: "/",
     });
 
-    // ✅ תיקון קריטי: שמירת הסטטוס כ-userRole למניעת נעילת האדמין מחוץ לפנל
+    // שמירת הסטטוס כ-userRole למניעת נעילת האדמין מחוץ לפנל
     cookieStore.set("userRole", assignedRole, {
+      httpOnly: false,
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 60 * 60 * 24 * 7,
+      path: "/",
+    });
+
+    // 🏆 שמירת שם המשתמש ישירות בקוקיז לביצועים אופטימליים בדשבורד
+    cookieStore.set("userName", finalName, {
       httpOnly: false,
       secure: process.env.NODE_ENV === "production",
       maxAge: 60 * 60 * 24 * 7,

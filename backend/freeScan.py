@@ -7,6 +7,10 @@ from urllib.parse import urlparse
 from fastapi import APIRouter, HTTPException, Query
 import requests
 
+# ביטול אזהרות ה-SSL המציפות את הלוגים בגלל ה-verify=False
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/tools", tags=["Free Tools"])
@@ -30,6 +34,7 @@ def quick_scan(url: str = Query(..., description="הכתובת לבדיקה")):
         }
 
         start_time = time.time()
+        # verify=False מאפשר לסרוק את האתר גם אם ה-SSL שלו פגוע כדי לתת ללקוח אבחנה מדויקת
         response = requests.get(
             url, timeout=5, headers=headers, verify=False, allow_redirects=True
         )
@@ -62,9 +67,11 @@ def quick_scan(url: str = Query(..., description="הכתובת לבדיקה")):
                 context.check_hostname = False
                 context.verify_mode = ssl.CERT_NONE
 
-                with socket.create_connection((hostname, 443), timeout=3) as sock:
+                # הגדרת הגנת רשת הרמטית: הוספת טיימאאוט קשיח גם לחיבור וגם ללחיצת היד של ה-SSL
+                with socket.create_connection((hostname, 443), timeout=4) as sock:
+                    sock.settimeout(4) # מונע תקיעה בשלב ה-Handshake
                     with context.wrap_socket(sock, server_hostname=hostname) as ssock:
-                        cert = ssock.getpeercert(binary_form=True)
+                        ssock.getpeercert(binary_form=True)
                         ssl_info["status"] = "תקף (Valid)"
                         ssl_info["issuer"] = "נשלח באימות מאובטח"
                         ssl_info["days_remaining"] = "נבדק בהצלחה"

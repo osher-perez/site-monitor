@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { registerUserAction, loginUserAction, checkEmailAction } from "@/app/actions/auth";
 
 interface RegisterFormProps {
@@ -84,7 +85,7 @@ export const RegisterForm = ({ isAdminMode = false }: RegisterFormProps) => {
       }
     }
 
-    setLoading(false);
+    loading && setLoading(false);
   };
 
   const handleBackToEmail = () => {
@@ -101,17 +102,27 @@ export const RegisterForm = ({ isAdminMode = false }: RegisterFormProps) => {
   };
 
   return (
-    <div className="max-w-md mx-auto p-8 bg-white border border-gray-100 rounded-3xl shadow-xl text-right" dir="rtl">
+    <div className="max-w-md mx-auto p-8 bg-white border border-gray-100 rounded-3xl shadow-xl text-right relative" dir="rtl">
       
+      {/* כפתור חזרה קבוע לעמוד הבית */}
+      <div className="absolute top-6 left-6">
+        <Link 
+          href="/" 
+         className="text-xs font-bold text-emerald-700 hover:text-emerald-800 transition flex items-center gap-1 bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded-full shadow-sm"
+        >
+          חזרה לעמוד הבית
+        </Link>
+      </div>
+
       {/* כותרת ותת-כותרת משתנות בהתאם לשלב ולתפקיד */}
-      <div className="mb-6">
+      <div className="mb-6 pt-4">
         <h2 className="text-xl font-black tracking-tight text-gray-950 mb-1">
           {step === "email" && (isAdminMode ? "אימות מנהל מערכת" : "כניסת משתמש / הרשמה")}
           {step === "login" && "התחברות לחשבון"}
           {step === "register" && "יצירת חשבון מנטר"}
         </h2>
         <p className="text-xs text-gray-400 font-medium leading-relaxed">
-          {step === "email" && (isAdminMode ? "הזן את כתובת המייל הייעודית של צוות הניהול." : "Sign up / In")}
+          {step === "email" && (isAdminMode ? "הזן את כתובת המייל הייעודית של צוות הניהול." : "התחל בניטור האתרים שלך בזמן אמת.")}
           {step === "login" && `ברוך השב! אנא הזן סיסמה להמשך עבור ${formData.email}`}
           {step === "register" && "נראה שאתה פה בפעם הראשונה! השלם את פרטי הרישום."}
         </p>
@@ -134,7 +145,7 @@ export const RegisterForm = ({ isAdminMode = false }: RegisterFormProps) => {
               value={formData.email}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               placeholder="name@example.com"
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50/50 outline-none focus:border-blue-500 focus:bg-white text-left font-sans text-sm transition-all"
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50/50 outline-none focus:border-indigo-500 focus:bg-white text-left font-sans text-sm transition-all"
               dir="ltr"
             />
           </div>
@@ -151,9 +162,9 @@ export const RegisterForm = ({ isAdminMode = false }: RegisterFormProps) => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full mt-2 bg-gray-950 hover:bg-gray-800 text-white font-bold py-3.5 rounded-xl text-xs transition-all shadow-md active:scale-95 disabled:opacity-50"
+            className="w-full mt-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-xl text-xs tracking-wide transition-all shadow-md hover:shadow-indigo-100 active:scale-[0.98] disabled:opacity-50"
           >
-            {loading ? "בודק נתונים..." : "המשך למערכת"}
+            {loading ? "בודק נתונים..." : "המשך למערכת ←"}
           </button>
         </form>
       )}
@@ -172,7 +183,7 @@ export const RegisterForm = ({ isAdminMode = false }: RegisterFormProps) => {
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   placeholder="ישראל ישראלי"
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50/50 outline-none focus:border-blue-500 focus:bg-white text-sm transition-all"
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50/50 outline-none focus:border-indigo-500 focus:bg-white text-sm transition-all"
                 />
               </div>
 
@@ -184,7 +195,7 @@ export const RegisterForm = ({ isAdminMode = false }: RegisterFormProps) => {
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                   placeholder="050-1234567"
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50/50 outline-none focus:border-blue-500 focus:bg-white text-left font-sans text-sm transition-all"
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50/50 outline-none focus:border-indigo-500 focus:bg-white text-left font-sans text-sm transition-all"
                   dir="ltr"
                 />
               </div>
@@ -197,7 +208,7 @@ export const RegisterForm = ({ isAdminMode = false }: RegisterFormProps) => {
                   value={formData.initialUrl}
                   onChange={(e) => setFormData({ ...formData, initialUrl: e.target.value })}
                   placeholder="https://my-site.com"
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50/50 outline-none focus:border-blue-500 focus:bg-white text-left font-sans text-sm transition-all"
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50/50 outline-none focus:border-indigo-500 focus:bg-white text-left font-sans text-sm transition-all"
                   dir="ltr"
                 />
               </div>
@@ -214,7 +225,7 @@ export const RegisterForm = ({ isAdminMode = false }: RegisterFormProps) => {
               value={formData.password}
               onChange={(e) => setFormData({ ...formData, password: e.target.value })}
               placeholder="••••••••"
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50/50 outline-none focus:border-blue-500 focus:bg-white text-left font-sans text-sm transition-all"
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50/50 outline-none focus:border-indigo-500 focus:bg-white text-left font-sans text-sm transition-all"
               dir="ltr"
             />
           </div>
@@ -226,7 +237,7 @@ export const RegisterForm = ({ isAdminMode = false }: RegisterFormProps) => {
                 id="marketingConsent"
                 checked={formData.marketingConsent}
                 onChange={(e) => setFormData({ ...formData, marketingConsent: e.target.checked })}
-                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 mt-0.5"
+                className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 mt-0.5"
               />
               <label htmlFor="marketingConsent" className="text-[11px] leading-normal text-gray-400 cursor-pointer select-none">
                 I agree to receive system updates, rapid speed checks, monthly uptime statistics and critical server alerts for my monitored URLs.
@@ -238,7 +249,7 @@ export const RegisterForm = ({ isAdminMode = false }: RegisterFormProps) => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-gray-950 hover:bg-gray-800 text-white font-bold py-3.5 rounded-xl text-xs transition-all shadow-md active:scale-95 disabled:opacity-50"
+              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-xl text-xs tracking-wide transition-all shadow-md hover:shadow-indigo-100 active:scale-[0.98] disabled:opacity-50"
             >
               {loading ? "מבצע פעולה..." : step === "login" ? "התחבר כעת" : "צור חשבון והפעל ניטור"}
             </button>
@@ -246,7 +257,7 @@ export const RegisterForm = ({ isAdminMode = false }: RegisterFormProps) => {
             <button
               type="button"
               onClick={handleBackToEmail}
-              className="text-xs text-gray-400 hover:text-gray-600 transition text-center underline pt-1"
+              className="text-xs text-gray-400 hover:text-gray-500 transition text-center underline pt-1"
             >
               שינוי כתובת המייל או חזרה אחורה
             </button>

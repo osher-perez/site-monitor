@@ -46,6 +46,7 @@ function DashboardContent() {
   useEffect(() => {
     const loggedInUserId = getCookie("userId");
     const userRole = getCookie("userRole");
+    const cookieUserName = getCookie("userName");
     let targetUserId = loggedInUserId;
 
     if (viewAsId && (userRole === "admin" || loggedInUserId === "admin")) {
@@ -56,15 +57,31 @@ function DashboardContent() {
     if (!targetUserId) {
       setTimeout(() => {
         setErrorMsg("מזהה משתמש לא נמצא. נא להתחבר מחדש.");
-        setLoading(false);
       }, 0);
       return;
     }
 
-    // קריאות שרת לפייתון
+    // קריאות שרת לפייתון - שימוש חכם בקוקיז או ב-API בהתאם למצב הנוכחי
     const fetchProfile = fetch(`http://localhost:8000/user-profile?user_id=${targetUserId}`)
-      .then((res) => (res.ok ? res.json() : { name: "משתמש מחובר", email: "", plan: "בסיסי (חינם)" }))
-      .then((data) => setProfile(data));
+      .then((res) => {
+        if (!res.ok) throw new Error();
+        return res.json();
+      })
+      .then((data) => {
+        setProfile({
+          name: data.name || cookieUserName || data.email?.split("@")[0] || "מנטר מערכת",
+          email: data.email || "",
+          plan: data.plan || "בסיסי (חינם)"
+        });
+      })
+      .catch(() => {
+        // הגנה מפני קריסה: במקרה של שגיאת רשת, נשתמש ישירות בשם מהקוקי המקומי
+        setProfile({ 
+          name: cookieUserName || "משתמש מחובר", 
+          email: "", 
+          plan: "בסיסי (חינם)" 
+        });
+      });
 
     const fetchSites = fetch(`http://localhost:8000/list-sites?user_id=${targetUserId}`)
       .then((res) => (res.ok ? res.json() : []))
@@ -88,7 +105,7 @@ function DashboardContent() {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-20 bg-white rounded-3xl border border-gray-100 shadow-sm" dir="rtl">
-        <p className="text-gray-400 font-mono text-sm animate-pulse">טוען סביבת עבודה אישית...</p>
+        <p className="text-gray-400 font-sans text-sm animate-pulse">טוען סביבת עבודה אישית...</p>
       </div>
     );
   }
@@ -106,11 +123,14 @@ function DashboardContent() {
   return (
     <div className="max-w-6xl mx-auto space-y-8 text-right" dir="rtl">
       
-      {/* באנר מצב אדמין */}
+      {/* באנר מצב אדמין משופר ומיושר לעיצוב העסקי החדש שלנו */}
       {isImpersonating && (
-        <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl flex justify-between items-center text-amber-900 text-xs font-bold shadow-sm">
-          <span>👀 פנל ניהול: צפייה בדשבורד של לקוח מנוהל</span>
-          <Link href="/admin-panel" className="bg-amber-600 hover:bg-amber-700 text-white px-3 py-1.5 rounded-xl transition-all">
+        <div className="bg-amber-50 border border-amber-100 p-4 rounded-2xl flex justify-between items-center text-amber-900 text-xs font-bold shadow-sm animate-in slide-in-from-top-2">
+          <div className="flex items-center gap-2">
+            <span className="flex h-2 w-2 rounded-full bg-amber-500 animate-ping" />
+            <span>👀 פנל ניהול: צפייה בדשבורד של לקוח מנוהל (מצב התחזות פעיל)</span>
+          </div>
+          <Link href="/admin-panel" className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-xl transition-all shadow-sm active:scale-95">
             חזרה לפנל הניהול ←
           </Link>
         </div>
@@ -129,7 +149,7 @@ function DashboardContent() {
       {/* 🔔 קומפוננטה 2: פיד הודעות מערכת */}
       <NotificationFeed messages={messages} />
 
-      {/* 🔒 קומפוננטה 4: כותרת וכפתור הוספה (אוכף מגבלות ושומר שיוך משתמש) */}
+      {/* 🔒 קומפוננטה 4: כותרת וכפתור הוספה */}
       <QuickActionGate 
         isLimitReached={isLimitReached} 
         isImpersonating={isImpersonating} 
@@ -151,7 +171,7 @@ export default function DashboardPage() {
   return (
     <Suspense fallback={
       <div className="flex flex-col items-center justify-center py-20 bg-white rounded-3xl border border-gray-100 shadow-sm" dir="rtl">
-        <p className="text-gray-400 font-mono text-sm animate-pulse">מכין ממשק בקרה...</p>
+        <p className="text-gray-400 font-sans text-sm animate-pulse">מכין ממשק בקרה...</p>
       </div>
     }>
       <DashboardContent />

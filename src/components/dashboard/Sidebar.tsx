@@ -1,39 +1,20 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-
-function getCookie(name: string): string | null {
-  if (typeof document === "undefined") return null;
-  const value = `; ${document.cookie}`;
-  const parts = value.split(`; ${name}=`);
-  if (parts.length === 2) return parts.pop()?.split(";").shift() || null;
-  return null;
-}
 
 export const Sidebar = () => {
   const pathname = usePathname();
   const router = useRouter();
-  const [isAdmin, setIsAdmin] = useState(false);
-  
-  // 🔔 מוק זמני למונה הודעות שלא נקראו (יוחלף בהמשך ב-State או Fetch מה-API)
-  const [unreadCount, setUnreadCount] = useState(3);
 
-  useEffect(() => {
-    const userRole = getCookie("userRole"); 
-    const userId = getCookie("userId");
-
-    if (userRole === "admin" || userId === "admin") {
-      setTimeout(() => {
-        setIsAdmin(true);
-      }, 0);
-    }
-  }, []);
+  // 🔔 מוק זמני למונה הודעות שלא נקראו
+  const [unreadCount] = useState(3);
 
   const handleLogout = () => {
     document.cookie = "userId=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-    document.cookie = "userRole=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+    document.cookie =
+      "userRole=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
     router.push("/");
     router.refresh();
   };
@@ -41,87 +22,78 @@ export const Sidebar = () => {
   const isActive = (path: string) => pathname === path;
 
   return (
-    <aside className="w-64 bg-white border-l border-gray-100 p-6 hidden md:flex flex-col shrink-0 min-h-screen shadow-sm text-right font-sans" dir="rtl">
-      
+    <aside
+      className="w-64 bg-white border-l border-gray-100 p-6 hidden md:flex flex-col shrink-0 min-h-screen shadow-sm text-right font-sans"
+      dir="rtl"
+    >
       {/* אזור המותג ותגית הסטטוס */}
       <div className="mb-10 px-2">
-        <Link href="/dashboard" className="text-xl font-black tracking-tighter uppercase text-blue-600 hover:opacity-80 transition flex items-center gap-2">
+        <Link
+          href="/dashboard"
+          className="text-xl font-black tracking-tighter uppercase text-indigo-600 hover:opacity-80 transition flex items-center gap-2"
+        >
           <span>
             Site<span className="text-gray-500 font-medium">Monitor</span>
           </span>
-          <span className="text-[9px] font-mono tracking-wider bg-blue-50 text-blue-600 px-2 py-0.5 rounded-md font-bold uppercase">
+          <span className="text-[9px] font-mono tracking-wider bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-md font-bold uppercase">
             Console
           </span>
         </Link>
       </div>
 
       {/* ניווט מערכתי */}
-      <nav className="space-y-1.5 grow">
-        
+      <nav className="space-y-2 grow">
+        {/* 1. מרכז בקרה */}
         <Link
           href="/dashboard"
-          className={`flex items-center px-4 py-3 rounded-xl text-xs font-bold tracking-wide transition-all border ${
+          className={`flex items-center px-4 py-3 rounded-xl text-xs font-bold tracking-wide transition-all duration-200 border transform hover:scale-[1.02] active:scale-[0.98] ${
             isActive("/dashboard")
-              ? "bg-blue-50 border-blue-100 text-blue-600"
+              ? "bg-indigo-50 border-indigo-100 text-indigo-600 shadow-xs font-black"
               : "border-transparent text-gray-500 hover:bg-gray-50 hover:text-gray-900"
           }`}
         >
           מרכז בקרה
         </Link>
 
-        {/* 🔔 כפתור ניווט חדש: יומן התראות הכולל את הפעמון והנקודה האדומה החכמה */}
+        {/* 2. הוספת אתר למעקב */}
+        <Link
+          href="/dashboard/add-site"
+          className={`flex items-center px-4 py-3 rounded-xl text-xs font-bold tracking-wide transition-all duration-200 border transform hover:scale-[1.02] active:scale-[0.98] ${
+            isActive("/dashboard/add-site")
+              ? "bg-indigo-50 border-indigo-100 text-indigo-600 shadow-xs font-black"
+              : "border-transparent text-gray-500 hover:bg-gray-50 hover:text-gray-900"
+          }`}
+        >
+          + הוספת אתר (URL) למעקב
+        </Link>
+
+        {/* 3. יומן התראות */}
         <Link
           href="/dashboard/alerts"
-          className={`flex items-center justify-between px-4 py-3 rounded-xl text-xs font-bold tracking-wide transition-all border ${
+          className={`flex items-center justify-between px-4 py-3 rounded-xl text-xs font-bold tracking-wide transition-all duration-200 border transform hover:scale-[1.02] active:scale-[0.98] ${
             isActive("/dashboard/alerts")
-              ? "bg-blue-50 border-blue-100 text-blue-600"
+              ? "bg-indigo-50 border-indigo-100 text-indigo-600 shadow-xs font-black"
               : "border-transparent text-gray-500 hover:bg-gray-50 hover:text-gray-900"
           }`}
         >
           <span>יומן התראות</span>
-          
-          {/* חיווי ויזואלי של מונה ההודעות רק במידה ויש כאלו */}
+
           {unreadCount > 0 && (
-            <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-600 px-1.5 text-[9px] font-black font-mono text-white ring-2 ring-white animate-pulse">
+            <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-600 px-1.5 text-[9px] font-black font-mono text-white ring-2 ring-white animate-pulse transition-transform duration-200">
               {unreadCount > 99 ? "99+" : unreadCount}
             </span>
           )}
         </Link>
-
-        <Link
-          href="/dashboard/add-site"
-          className={`flex items-center px-4 py-3 rounded-xl text-xs font-bold tracking-wide transition-all border ${
-            isActive("/dashboard/add-site")
-              ? "bg-blue-50 border-blue-100 text-blue-600"
-              : "border-transparent text-gray-500 hover:bg-gray-50 hover:text-gray-900"
-          }`}
-        >
-          הוספת נקודת קצה
-        </Link>
-
-        {isAdmin && (
-          <Link
-            href="/dashboard/admin"
-            className={`flex items-center px-4 py-3 rounded-xl text-xs font-bold tracking-wide transition-all border ${
-              isActive("/dashboard/admin")
-                ? "bg-blue-50 border-blue-100 text-blue-600"
-                : "border-transparent text-gray-500 hover:bg-gray-50 hover:text-gray-900"
-            }`}
-          >
-            ניהול תשתית
-          </Link>
-        )}
-
       </nav>
 
-      {/* אזור מערכת תחתון */}
+      {/* אזור מערכת תחתון - כפתור יציאה ממוסגר ומסודר */}
       <div className="pt-4 border-t border-gray-100">
         <button
           onClick={handleLogout}
-          className="flex items-center justify-between w-full px-4 py-3 text-xs font-bold text-red-500 hover:bg-red-50 rounded-xl transition-all border border-transparent hover:border-red-100 cursor-pointer"
+          className="flex items-center justify-between w-full px-4 py-3 text-xs font-bold text-red-600 bg-white hover:bg-red-50 rounded-xl transition-all border border-gray-200 hover:border-red-200 cursor-pointer shadow-sm active:scale-[0.98]"
         >
-          <span>ניתוק מהמערכת</span>
-          <span className="text-[10px] opacity-60 font-mono">→</span>
+          <span>יציאה מהמערכת</span>
+          <span className="text-[12px] font-bold">→</span>
         </button>
       </div>
     </aside>

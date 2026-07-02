@@ -1,19 +1,19 @@
 import os
+import logging
 from datetime import datetime, timezone
 import bcrypt
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, EmailStr
-from pymongo import MongoClient
+
+# ייבוא חיבורי בסיס הנתונים המרכזיים מהפיצול החדש שלנו
+from backend.database import db, sites_collection
+
+logger = logging.getLogger(__name__)
 
 # הגדרת ראוטר ייעודי למשתמשים - תת-שרת בתוך השרת המרכזי
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
-# חיבור לבסיס הנתונים
-MONGO_URI = os.getenv("MONGO_URI", "mongodb://127.0.0.1:27017")
-client = MongoClient(MONGO_URI)
-db = client.get_database("site_monitor")
 users_collection = db.users  # אוסף המשתמשים
-
 
 # מודלים של Pydantic לאימות הנתונים מה-Frontend
 class UserRegisterRequest(BaseModel):
@@ -23,24 +23,20 @@ class UserRegisterRequest(BaseModel):
     password: str
     initialUrl: str
 
-
 class UserLoginRequest(BaseModel):
     email: EmailStr
     password: str
 
-
-# פונקציות עזר להצפנה ואימות סיסמאות
+# פונקציית עזר להצפנה ואימות סיסמאות
 def hash_password(password: str) -> str:
     salt = bcrypt.gensalt()
     hashed = bcrypt.hashpw(password.encode("utf-8"), salt)
     return hashed.decode("utf-8")
 
-
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return bcrypt.checkpw(
         plain_password.encode("utf-8"), hashed_password.encode("utf-8")
     )
-
 
 # 1. Endpoint לבדיקת קיום מייל במערכת (מותאם ל-GET מה-Frontend)
 @router.get("/check-email")
@@ -56,18 +52,18 @@ def check_email(email: str = Query(..., description="The email to check")):
                 "exists": False,
                 "message": "User does not exist, proceed to registration.",
             }
-
     except Exception as e:
+        logger.error(f"❌ Error checking email: {e}")
         raise HTTPException(
             status_code=500, detail=f"Database error: {str(e)}"
         )
-
 
 # 2. Endpoint להרשמת משתמש חדש
 @router.post("/register")
 def register_user(data: UserRegisterRequest):
     try:
         email_clean = data.email.strip().lower()
+        clean_name = data.name.strip()
 
         if users_collection.find_one({"email": email_clean}):
             raise HTTPException(
@@ -82,7 +78,7 @@ def register_user(data: UserRegisterRequest):
             is_admin = True
 
         new_user = {
-            "name": data.name.strip(),
+            "name": clean_name,
             "email": email_clean,
             "phone": data.phone.strip(),
             "password": hashed_pwd,
@@ -95,11 +91,12 @@ def register_user(data: UserRegisterRequest):
 
         # הוספת האתר הראשוני במידה וקיים
         if data.initialUrl:
-            db.sites.insert_one(
+            # 🐛 תיקון באג קריטי: שינוי השדה ל-user_id (עם קו תחתון) כדי שלא יינעל בדשבורד
+            sites_collection.insert_one(
                 {
-                    "url": data.initialUrl.strip(),
+                    "url": data.initialUrl.strip().rstrip("/"),
                     "status": "PENDING",
-                    "userId": user_id,
+                    "user_id": str(user_id), 
                     "createdAt": datetime.now(timezone.utc),
                 }
             )
@@ -108,14 +105,16 @@ def register_user(data: UserRegisterRequest):
             "success": True,
             "message": "User registered successfully and initial site added.",
             "userId": str(user_id),
+            "name": clean_name, # החזרת השם כדי שNext.js ישמור אותו בקוקי מיד בהרשמה
             "isAdmin": is_admin
         }
-
+    except HTTPException as http_ex:
+        raise http_ex
     except Exception as e:
+        logger.error(f"❌ Registration failed: {e}")
         raise HTTPException(
             status_code=500, detail=f"Registration failed: {str(e)}"
         )
-
 
 # 3. Endpoint להתחברות משתמש קיים (Login)
 @router.post("/login")
@@ -147,4 +146,5 @@ def login_user(data: UserLoginRequest):
     except HTTPException as he:
         raise he
     except Exception as e:
+        logger.error(f"❌ Login failed: {e}")
         raise HTTPException(status_code=500, detail=f"Login failed: {str(e)}")

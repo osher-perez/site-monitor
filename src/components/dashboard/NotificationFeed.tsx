@@ -13,7 +13,7 @@ interface NotificationFeedProps {
 }
 
 export const NotificationFeed = ({ messages }: NotificationFeedProps) => {
-  if (messages.length === 0) return null;
+  if (messages.length === 0) return null; 
 
   // פונקציית עזר לחילוץ קלאסים עיצוביים בצורה נקייה על פי סוג האירוע
   const getFeedStyles = (type: "info" | "warning" | "success") => {
