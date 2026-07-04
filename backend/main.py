@@ -39,6 +39,22 @@ def hourly_monitor_task():
             run_and_save_check(site)
     except Exception as e:
         logger.error(f"❌ Error in hourly monitor task: {e}")
+        
+@app.get("/check")
+def check_site(url: str):
+    # ניקוי לוכסנים ורווחים להתאמה מושלמת לפרונטאנד
+    clean_url = url.strip().rstrip("/")
+    
+    # חיפוש האתר ב-DB
+    site = sites_collection.find_one({"url": clean_url})
+    if not site:
+        return {"status": "ERROR", "message": "האתר לא נמצא במסד הנתונים של המערכת"}
+        
+    # הרצת הבדיקה המשותפת מ-utils.py
+    from backend.utils import run_and_save_check
+    run_and_save_check(site)
+    
+    return {"status": "SUCCESS", "message": f"Checked {clean_url}"}
 
 # הראוט המיוחד של האדמין נשאר פה זמנית כראוט עוקף
 @app.get("/admin/overview")

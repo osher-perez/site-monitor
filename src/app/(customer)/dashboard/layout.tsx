@@ -21,10 +21,10 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     setIsLoggingOut(true);
 
     try {
-      // מחיקת כל עוגיות האימות והתפקידים של המערכת
+      // מחיקת כל עוגיות האימות והתפקידים הרשמיים של המערכת
       deleteCookie("userId");
       deleteCookie("userRole");
-      deleteCookie("isAdmin");
+      deleteCookie("userName"); // ניקוי שם המשתמש מהסשן
 
       // ניתוב מחדש לשער הכניסה הסטרילי
       router.replace("/auth");
@@ -52,17 +52,18 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           
           {/* אזור הפעולות והסטטוס הימני/שמאלי של הבר */}
           <div className="flex items-center gap-4">
-            {/* נורית חיווי LIVE */}
-            <div className="flex items-center gap-3 bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-100">
+            
+            {/* נורית חיווי LIVE מעודכנת */}
+            <div className="flex items-center gap-3 bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-100 select-none">
               <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
               <span className="text-[10px] text-emerald-700 font-mono font-black tracking-wider">LIVE MONITORING</span>
             </div>
 
-            {/* ✅ משימה 3: כפתור התנתקות גלובלי, נקי ומהיר ללא any */}
+            {/* כפתור התנתקות גלובלי, נקי ומהיר עם אינטראקציה רכה */}
             <button
               onClick={handleLogout}
               disabled={isLoggingOut}
-              className="text-xs font-bold text-gray-400 hover:text-rose-600 border border-transparent hover:border-rose-100 hover:bg-rose-50/60 px-3 py-1.5 rounded-xl transition-all cursor-pointer disabled:opacity-40"
+              className="text-xs font-bold text-gray-400 hover:text-rose-600 border border-transparent hover:border-rose-100 hover:bg-rose-50/60 px-3 py-1.5 rounded-xl transition-all transform hover:scale-[1.02] active:scale-[0.98] cursor-pointer disabled:opacity-40"
             >
               {isLoggingOut ? "מתנתק..." : "🚪 התנתק"}
             </button>

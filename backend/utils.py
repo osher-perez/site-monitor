@@ -11,10 +11,18 @@ def run_and_save_check(site_document):
     url = str(site_document["url"])
     try:
         logger.info(f"🔍 System checking site: {url}")
+        
+        # User-Agent מקצועי כדי ששרתים (כמו גוגל) לא יחסמו את בקשת ה-מוניטור שלנו
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
+        
         start_time = time.time()
-        response = requests.get(url, timeout=10)
+        response = requests.get(url, timeout=10, headers=headers, allow_redirects=True)
         response_ms = round((time.time() - start_time) * 1000)
-        status = "UP" if response.status_code == 200 else "DOWN"
+        
+        # ⚡ תיקון הגדרת סטטוס: כל קוד שקטן מ-400 (כולל 200, 301, 302) נחשב כאתר חי ונושם!
+        status = "UP" if response.status_code < 400 else "DOWN"
 
         site_id = site_document["_id"]
         if isinstance(site_id, str):
@@ -34,12 +42,16 @@ def run_and_save_check(site_document):
             {"$set": {"status": status, "last_check": datetime.now(timezone.utc)}}
         )
         logger.info(f"✨ Auto-check completed for {url}: {status} ({response_ms}ms)")
+    
     except Exception as e:
         logger.error(f"💥 Failed checking {url}: {str(e)}")
         try:
             site_id = site_document["_id"]
             if isinstance(site_id, str):
                 site_id = ObjectId(site_id)
-            sites_collection.update_one({"_id": site_id}, {"$set": {"status": "DOWN", "last_check": datetime.now(timezone.utc)}})
+            sites_collection.update_one(
+                {"_id": site_id}, 
+                {"$set": {"status": "DOWN", "last_check": datetime.now(timezone.utc)}}
+            )
         except Exception as inner_e:
             logger.error(f"❌ Could not update DOWN status in DB: {inner_e}")

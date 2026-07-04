@@ -3,6 +3,8 @@
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { SiteAnalyticsGraph } from "@/components/dashboard/SiteAnalyticsGraph";
+import { SiteLogsTable } from "@/components/dashboard/SiteLogsTable";
 
 interface HistoryLog {
   timestamp: string;
@@ -36,7 +38,6 @@ function ViewSiteContent() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isImpersonating, setIsImpersonating] = useState(false);
 
-  // סטייטס חדשים לניהול עריכה ומחיקה
   const [isEditing, setIsEditing] = useState(false);
   const [editUrl, setEditUrl] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
@@ -47,36 +48,16 @@ function ViewSiteContent() {
   const isAdminAction = !!(viewAsId && (userRole === "admin" || loggedInUserId === "admin"));
   const targetUserId = isAdminAction ? viewAsId : loggedInUserId;
 
-  useEffect(() => {
-    if (!siteUrl) {
-      setTimeout(() => {
-        setErrorMsg("❌ שגיאה: כתובת האתר לא צוינה בקישור.");
-        setLoading(false);
-      }, 0);
-      return;
-    }
+  const round = (num: number) => Math.round(num);
 
-    if (!targetUserId) {
-      setTimeout(() => {
-        setErrorMsg("❌ מזהה משתמש לא נמצא. נא להתחבר מחדש.");
-        setLoading(false);
-      }, 0);
-      return;
-    }
-
-    if (isAdminAction) {
-      setTimeout(() => {
-        setIsImpersonating(true);
-      }, 0);
-    }
-
-    fetch(`http://localhost:8000/site-history?url=${encodeURIComponent(siteUrl)}&user_id=${targetUserId}`)
+  const fetchHistoryData = () => {
+    if (!siteUrl || !targetUserId) return;
+    return fetch(`http://localhost:8000/site-history?url=${encodeURIComponent(siteUrl)}&user_id=${targetUserId}`)
       .then((res) => {
         if (!res.ok) throw new Error("נכשל בטעינת היסטוריית האתר מהשרת");
         return res.json();
       })
       .then((data) => {
-        // התאמה לפורמט השרת - חישוב דינמי זמני אם השדות חסרים בשרת
         const uptime = data.uptime_percentage !== undefined ? data.uptime_percentage : 100;
         const avgTime = data.average_response_time !== undefined ? data.average_response_time : 
           (data.history?.length ? round(data.history.reduce((acc: number, log: HistoryLog) => acc + log.response_time, 0) / data.history.length) : 0);
@@ -89,66 +70,90 @@ function ViewSiteContent() {
         });
         setEditUrl(data.url);
         setLoading(false);
-      })
-      .catch((err: unknown) => {
-        console.error("Fetch Site History Error:", err);
-        setErrorMsg("לא ניתן ליצור קשר עם שרת הניטור או שהנתונים אינם קיימים.");
-        setLoading(false);
       });
+  };
+
+  useEffect(() => {
+    if (!siteUrl) {
+      setErrorMsg("❌ שגיאה: כתובת האתר לא צוינה בקישור.");
+      setLoading(false);
+      return;
+    }
+    if (!targetUserId) {
+      setErrorMsg("❌ מזהה משתמש לא נמצא. נא להתחבר מחדש.");
+      setLoading(false);
+      return;
+    }
+    if (isAdminAction) {
+      setIsImpersonating(true);
+    }
+
+    fetchHistoryData()?.catch((err: unknown) => {
+      console.error("Fetch Site History Error:", err);
+      setErrorMsg("לא ניתן ליצור קשר עם שרת הניטור או שהנתונים אינם קיימים.");
+      setLoading(false);
+    });
   }, [siteUrl, targetUserId, isAdminAction]);
 
-  const round = (num: number) => Math.round(num);
   const backLink = isImpersonating ? `/dashboard?viewAs=${viewAsId}` : "/dashboard";
 
-  // 🗑️ לוגיקת מחיקת האתר מהמערכת
-  const handleDeleteSite = async () => {
-    if (!window.confirm("🚨 האם אתה בטוח שברצונך למחוק אתר זה ואת כל היסטוריית הלוגים שלו? פעולה זו אינה הפיכה!")) return;
-    if (!siteUrl || !targetUserId) return;
-
+  // ⚡ לוגיקת הרצת בדיקה ידנית יזומה בזמן אמת (On-Demand Check)
+  const handleManualCheck = async () => {
+    if (!siteUrl || actionLoading) return;
     setActionLoading(true);
-    setActionMessage("🧹 מוחק את האתר ונתוני הבדיקות מהשרת...");
+    setActionMessage("⚡ מריץ בדיקת שרת יזומה ומעדכן את ההיסטוריה...");
 
     try {
-      const res = await fetch(`http://localhost:8000/delete-site?url=${encodeURIComponent(siteUrl)}&user_id=${targetUserId}`, {
-        method: "DELETE",
-      });
+      const res = await fetch(`http://localhost:8000/check?url=${encodeURIComponent(siteUrl)}`);
       const data = await res.json();
+      if (!res.ok || data.status === "ERROR") throw new Error(data.message || "הבדיקה היזומה נכשלה");
 
-      if (!res.ok) throw new Error(data.detail || "נכשל בתהליך המחיקה מהשרת");
-
-      setActionMessage("✅ האתר נמחק בהצלחה! מחזיר אותך לדשבורד...");
+      setActionMessage("✨ הבדיקה הושלמה בהצלחה! מרענן נתונים...");
+      await fetchHistoryData();
+      
       setTimeout(() => {
-        router.push(backLink);
+        setActionMessage(null);
+        setActionLoading(false);
       }, 1500);
-
     } catch (err: unknown) {
-      console.error("Delete Site Error:", err);
-      const errMsg = err instanceof Error ? err.message : "שגיאה בתקשורת מול השרת";
-      setActionMessage(`❌ שגיאה: ${errMsg}`);
+      console.error("Manual check error:", err);
+      setActionMessage(err instanceof Error ? `❌ שגיאה: ${err.message}` : "שגיאה בביצוע הסריקה");
       setActionLoading(false);
     }
   };
 
-  // 📝 לוגיקת עריכת כתובת ה-URL
+  const handleDeleteSite = async () => {
+    if (!window.confirm("🚨 האם אתה בטוח שברצונך למחוק אתר זה? פעולה זו אינה הפיכה!")) return;
+    if (!siteUrl || !targetUserId) return;
+    setActionLoading(true);
+    setActionMessage("🧹 מוחק את האתר ונתוני הבדיקות מהשרת...");
+
+    try {
+      const res = await fetch(`http://localhost:8000/delete-site?url=${encodeURIComponent(siteUrl)}&user_id=${targetUserId}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || "נכשל בתהליך המחיקה");
+
+      setActionMessage("✅ האתר נמחק בהצלחה! מחזיר אותך לדשבורד...");
+      setTimeout(() => router.push(backLink), 1500);
+    } catch (err: unknown) {
+      setActionMessage(err instanceof Error ? `❌ שגיאה: ${err.message}` : "שגיאה בתקשורת");
+      setActionLoading(false);
+    }
+  };
+
   const handleUpdateSite = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!siteUrl || !targetUserId || !editUrl.trim()) return;
-
     setActionLoading(true);
-    setActionMessage("📝 מעדכן את כתובת האתר ומריץ סריקהראשונית...");
+    setActionMessage("📝 מעדכן את כתובת האתר ומריץ סריקה ראשונית...");
 
     try {
       const res = await fetch("http://localhost:8000/update-site", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          old_url: siteUrl.trim(),
-          new_url: editUrl.trim(),
-          user_id: targetUserId.trim(),
-        }),
+        body: JSON.stringify({ old_url: siteUrl.trim(), new_url: editUrl.trim(), user_id: targetUserId.trim() }),
       });
       const data = await res.json();
-
       if (!res.ok) throw new Error(data.detail || "נכשל בתהליך העדכון בשרת");
 
       setActionMessage("✅ הכתובת עודכנה בהצלחה! מרענן נתונים...");
@@ -156,13 +161,10 @@ function ViewSiteContent() {
         setIsEditing(false);
         setActionMessage(null);
         setActionLoading(false);
-        router.push(`${isImpersonating ? `/dashboard/view-site?url=${encodeURIComponent(editUrl.trim())}&viewAs=${viewAsId}` : `/dashboard/view-site?url=${encodeURIComponent(editUrl.trim())}`}`);
+        router.push(isImpersonating ? `/dashboard/view-site?url=${encodeURIComponent(editUrl.trim())}&viewAs=${viewAsId}` : `/dashboard/view-site?url=${encodeURIComponent(editUrl.trim())}`);
       }, 1500);
-
     } catch (err: unknown) {
-      console.error("Update Site Error:", err);
-      const errMsg = err instanceof Error ? err.message : "שגיאה בתקשורת מול השרת";
-      setActionMessage(`❌ שגיאה: ${errMsg}`);
+      setActionMessage(err instanceof Error ? `❌ שגיאה: ${err.message}` : "שגיאה בתקשורת");
       setActionLoading(false);
     }
   };
@@ -190,8 +192,6 @@ function ViewSiteContent() {
 
   return (
     <div className="max-w-6xl mx-auto text-gray-900 space-y-8" dir="rtl">
-      
-      {/* ⚠️ באנר התראת מצב אדמין */}
       {isImpersonating && (
         <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl flex justify-between items-center text-amber-900 text-xs font-bold shadow-sm animate-in slide-in-from-top-2">
           <span>👀 פנל ניהול: צפייה באנליטיקה של לקוח מנוהל</span>
@@ -201,7 +201,6 @@ function ViewSiteContent() {
         </div>
       )}
 
-      {/* 🛠️ סרגל כלים עליון לפעולות עריכה ומחיקה */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-gray-100 pb-6">
         <div>
           <Link href={backLink} className="text-gray-400 hover:text-gray-950 mb-2 inline-block text-sm transition-all hover:translate-x-1">
@@ -214,6 +213,14 @@ function ViewSiteContent() {
         </div>
 
         <div className="flex items-center gap-3 self-start sm:self-auto">
+          {/* כפתור הרצת הבדיקה היזומה החדש */}
+          <button
+            onClick={handleManualCheck}
+            disabled={actionLoading}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-2xs disabled:opacity-40 cursor-pointer"
+          >
+            {actionLoading ? "⚡ סורק אתר..." : "⚡ בדוק עכשיו"}
+          </button>
           <button
             onClick={() => { setIsEditing(!isEditing); setActionMessage(null); }}
             disabled={actionLoading}
@@ -231,7 +238,6 @@ function ViewSiteContent() {
         </div>
       </div>
 
-      {/* 📝 חלונית עריכת הכתובת הדינמית */}
       {isEditing && (
         <div className="bg-white border border-indigo-100 p-5 rounded-2xl shadow-xs animate-in slide-in-from-top-2 duration-200">
           <form onSubmit={handleUpdateSite} className="flex flex-col sm:flex-row items-end gap-4">
@@ -244,7 +250,6 @@ function ViewSiteContent() {
                 value={editUrl}
                 onChange={(e) => setEditUrl(e.target.value)}
                 className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-mono focus:outline-none focus:border-indigo-300 focus:bg-white text-left"
-                placeholder="ltr"
                 dir="ltr"
               />
             </div>
@@ -259,14 +264,12 @@ function ViewSiteContent() {
         </div>
       )}
 
-      {/* הודעות חיווי לפעולות CRUD */}
       {actionMessage && (
         <div className="p-3 bg-gray-950 text-white font-mono text-center text-xs rounded-xl shadow-md border border-gray-800">
           {actionMessage}
         </div>
       )}
 
-      {/* 📊 כרטיסי מונים גדולים */}
       <div className="grid gap-6 grid-cols-1 sm:grid-cols-2">
         <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between">
           <div>
@@ -285,79 +288,9 @@ function ViewSiteContent() {
         </div>
       </div>
 
-      {/* 📈 גרף עמודות */}
-      <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-        <h3 className="text-sm font-bold text-gray-900 mb-6">מהירות תגובת שרת בבדיקות האחרונות (במילישניות)</h3>
-        
-        <div className="h-48 flex items-end justify-between gap-2 pt-6 px-2 border-b border-gray-100 font-mono">
-          {stats.history.slice(-12).map((log, index) => {
-            const heightPercentage = Math.min((log.response_time / 2000) * 100, 100);
-            
-            return (
-              <div key={index} className="flex-1 flex flex-col items-center group relative h-full justify-end">
-                <div className="absolute bottom-full mb-2 bg-gray-950 text-white text-[10px] py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 whitespace-nowrap border border-gray-800 shadow-md">
-                  {log.response_time} ms ({new Date(log.timestamp).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" })})
-                </div>
-                
-                <div 
-                  style={{ height: `${heightPercentage || 5}%` }} 
-                  className={`w-full rounded-t-md transition-all duration-500 group-hover:opacity-80 ${
-                    log.status === "UP" ? "bg-indigo-500" : "bg-rose-500"
-                  }`}
-                />
-                
-                <span className="text-[9px] text-gray-400 mt-2 block tracking-tighter">
-                  {new Date(log.timestamp).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" })}
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* 📜 טבלת לוגים */}
-      <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm">
-        <div className="p-4 bg-gray-50 border-b border-gray-100">
-          <h3 className="text-sm font-bold text-gray-900">יומן בדיקות מפורט (לוגים)</h3>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-right border-collapse font-mono text-xs">
-            <thead>
-              <tr className="bg-gray-50/50 border-b border-gray-100 text-gray-400">
-                <th className="p-4 font-bold uppercase">זמן בדיקה</th>
-                <th className="p-4 font-bold uppercase text-center">סטטוס</th>
-                <th className="p-4 font-bold uppercase text-left">זמן תגובה</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {stats.history.map((log, index) => (
-                <tr key={index} className="hover:bg-gray-50/30 transition-colors">
-                  <td className="p-4 text-gray-600" dir="ltr" style={{ textAlign: "right" }}>
-                    {new Date(log.timestamp).toLocaleString("he-IL", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit" })}
-                  </td>
-                  <td className="p-4 text-center">
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                      log.status === "UP" ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"
-                    }`}>
-                      {log.status === "UP" ? "ONLINE" : "OFFLINE"}
-                    </span>
-                  </td>
-                  <td className="p-4 text-left font-bold text-gray-700">
-                    {log.response_time} ms
-                  </td>
-                </tr>
-              ))}
-              {stats.history.length === 0 && (
-                <tr>
-                  <td colSpan={3} className="p-8 text-center text-gray-400">
-                    אין נתוני היסטוריה זמינים עבור אתר זה עדיין.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      {/* הזרקת הרכיבים המבודדים החדשים */}
+      <SiteAnalyticsGraph history={stats.history} />
+      <SiteLogsTable history={stats.history} />
 
     </div>
   );

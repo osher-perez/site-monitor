@@ -18,8 +18,8 @@ interface Site {
 
 interface UserProfile {
   name: string;
-  email: string;
   plan: string;
+  email?: string;
 }
 
 function getCookie(name: string): string | null {
@@ -34,73 +34,67 @@ function DashboardContent() {
   const searchParams = useSearchParams();
   const viewAsId = searchParams.get("viewAs");
   
-  const [sites, setSites] = useState<Site[]>([]);
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [messages, setMessages] = useState<SystemMessage[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [isImpersonating, setIsImpersonating] = useState(false);
+  const MAX_SITES_LIMIT = 3;
 
-  const MAX_SITES_LIMIT = 3; 
+  // 1. חילוץ מוקדם וסינכרוני של המשתנים מחוץ לסטייט ומחוץ לאפקט
+  const loggedInUserId = getCookie("userId");
+  const userRole = getCookie("userRole");
+  const cookieUserName = getCookie("userName");
+  
+  const isAdminAction = !!(viewAsId && (userRole === "admin" || loggedInUserId === "admin"));
+  const targetUserId = isAdminAction ? viewAsId : loggedInUserId;
+
+  // 2. אתחול סטטי וסינכרוני של פרופיל המשתמש
+  const [profile] = useState<UserProfile | null>(() => {
+    if (!targetUserId) return null;
+    if (isAdminAction) {
+      return { name: "לקוח מנוהל", plan: "בסיסי (חינם)" };
+    }
+    return {
+      name: cookieUserName || "מנטר מערכת",
+      plan: userRole === "admin" ? "מנהל מערכת (Admin)" : "בסיסי (חינם)"
+    };
+  });
+
+  // 3. אתחול חכם של הודעת השגיאה ומצב הטעינה - מונע קריסות ורינדורים כפולים
+  const [errorMsg] = useState<string | null>(() => {
+    if (!targetUserId) return "מזהה משתמש לא נמצא. נא להתחבר מחדש.";
+    return null;
+  });
+
+  const [loading, setLoading] = useState(() => {
+    if (!targetUserId) return false; // אם אין משתמש, לא צריך לטעון כלום
+    return true;
+  });
+
+  const [sites, setSites] = useState<Site[]>([]);
+  const [messages, setMessages] = useState<SystemMessage[]>([]);
 
   useEffect(() => {
-    const loggedInUserId = getCookie("userId");
-    const userRole = getCookie("userRole");
-    const cookieUserName = getCookie("userName");
-    let targetUserId = loggedInUserId;
+    // אם חסר מזהה משתמש, עצרנו כבר בשלב אתחול הסטייט העליון
+    if (!targetUserId) return;
 
-    if (viewAsId && (userRole === "admin" || loggedInUserId === "admin")) {
-      targetUserId = viewAsId;
-      setTimeout(() => setIsImpersonating(true), 0);
-    }
-
-    if (!targetUserId) {
-      setTimeout(() => {
-        setErrorMsg("מזהה משתמש לא נמצא. נא להתחבר מחדש.");
-      }, 0);
-      return;
-    }
-
-    // קריאות שרת לפייתון - שימוש חכם בקוקיז או ב-API בהתאם למצב הנוכחי
-    const fetchProfile = fetch(`http://localhost:8000/user-profile?user_id=${targetUserId}`)
+    // הרצת ה-Fetch האסינכרוני בלבד בתוך האפקט
+    fetch(`http://localhost:8000/list-sites?user_id=${targetUserId}`)
       .then((res) => {
-        if (!res.ok) throw new Error();
+        if (!res.ok) throw new Error("נכשל בטעינת רשימת האתרים");
         return res.json();
       })
       .then((data) => {
-        setProfile({
-          name: data.name || cookieUserName || data.email?.split("@")[0] || "מנטר מערכת",
-          email: data.email || "",
-          plan: data.plan || "בסיסי (חינם)"
-        });
+        setSites(data);
+        setLoading(false);
       })
-      .catch(() => {
-        // הגנה מפני קריסה: במקרה של שגיאת רשת, נשתמש ישירות בשם מהקוקי המקומי
-        setProfile({ 
-          name: cookieUserName || "משתמש מחובר", 
-          email: "", 
-          plan: "בסיסי (חינם)" 
-        });
-      });
-
-    const fetchSites = fetch(`http://localhost:8000/list-sites?user_id=${targetUserId}`)
-      .then((res) => (res.ok ? res.json() : []))
-      .then((data) => setSites(data));
-
-    setTimeout(() => {
-      setMessages([
-        { id: "1", type: "success", text: "🔒 מערכת הניטור פועלת בצורה מאובטחת וחסינה." },
-        { id: "2", type: "info", text: "🤖 בוט הטלגרם זמין! ניתן לחבר אותו באזור ההגדרות לקבלת התראות לנייד." }
-      ]);
-    }, 0);
-
-    Promise.all([fetchProfile, fetchSites])
-      .then(() => setLoading(false))
-      .catch(() => {
-        setErrorMsg("לא ניתן ליצור קשר עם שרת הניטור.");
+      .catch((err: unknown) => {
+        console.error("Dashboard fetch error:", err);
         setLoading(false);
       });
-  }, [viewAsId]);
+
+    setMessages([
+      { id: "1", type: "success", text: "🔒 מערכת הניטור פועלת בצורה מאובטחת וחסינה." },
+      { id: "2", type: "info", text: "🤖 בוט הטלגרם זמין! ניתן לחבר אותו באזור ההגדרות לקבלת התראות לנייד." }
+    ]);
+
+  }, [targetUserId]);
 
   if (loading) {
     return (
@@ -123,14 +117,14 @@ function DashboardContent() {
   return (
     <div className="max-w-6xl mx-auto space-y-8 text-right" dir="rtl">
       
-      {/* באנר מצב אדמין משופר ומיושר לעיצוב העסקי החדש שלנו */}
-      {isImpersonating && (
-        <div className="bg-amber-50 border border-amber-100 p-4 rounded-2xl flex justify-between items-center text-amber-900 text-xs font-bold shadow-sm animate-in slide-in-from-top-2">
+      {/* באנר מצב אדמין משופר ומיושר לעיצוב העסקי החדש */}
+      {isAdminAction && (
+        <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl flex justify-between items-center text-amber-900 text-xs font-bold shadow-sm animate-in slide-in-from-top-2">
           <div className="flex items-center gap-2">
             <span className="flex h-2 w-2 rounded-full bg-amber-500 animate-ping" />
             <span>👀 פנל ניהול: צפייה בדשבורד של לקוח מנוהל (מצב התחזות פעיל)</span>
           </div>
-          <Link href="/admin-panel" className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-xl transition-all shadow-sm active:scale-95">
+          <Link href="/admin-panel" className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-xl transition-all shadow-sm active:scale-95 transform hover:scale-[1.02] active:scale-[0.98]">
             חזרה לפנל הניהול ←
           </Link>
         </div>
@@ -149,17 +143,17 @@ function DashboardContent() {
       {/* 🔔 קומפוננטה 2: פיד הודעות מערכת */}
       <NotificationFeed messages={messages} />
 
-      {/* 🔒 קומפוננטה 4: כותרת וכפתור הוספה */}
+      {/* 🔒 קומפוננטה 3: כותרת וכפתור הוספה (Soft Gate) */}
       <QuickActionGate 
         isLimitReached={isLimitReached} 
-        isImpersonating={isImpersonating} 
+        isImpersonating={isAdminAction} 
         viewAsId={viewAsId} 
       />
 
-      {/* 🌐 קומפוננטה 3: גריד כרטיסי האתרים */}
+      {/* 🌐 קומפוננטה 4: גריד כרטיסי האתרים המנוטרים */}
       <MonitoredSitesGrid 
         sites={sites} 
-        isImpersonating={isImpersonating} 
+        isImpersonating={isAdminAction} 
         viewAsId={viewAsId} 
       />
 
