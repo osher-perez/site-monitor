@@ -12,3 +12,4 @@ pyjwt
 python-multipart
 typing_inspect
 typing-extensions
+email-validator
