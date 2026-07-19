@@ -9,3 +9,4 @@ requests
 bcrypt
 passlib
 pyjwt
+python-multipart
