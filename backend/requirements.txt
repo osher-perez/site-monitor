@@ -4,3 +4,8 @@ pymongo
 pydantic
 python-dotenv
 fastapi_utils
+httpx
+requests
+bcrypt
+passlib
+pyjwt
