@@ -38,7 +38,7 @@ export const FreeScanner = () => {
     setResult(null);
 
     try {
-      const response = await fetch(`/api/quick-scan?url=${encodeURIComponent(url)}`);
+     const response = await fetch(`/api/quick-scan?url=${encodeURIComponent(url)}`);
       const data = await response.json();
 
       if (response.ok && data.success) {
