@@ -11,12 +11,22 @@ export const Sidebar = () => {
   // 🔔 מוק זמני למונה הודעות שלא נקראו
   const [unreadCount] = useState(3);
 
-  const handleLogout = () => {
-    document.cookie = "userId=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-    document.cookie =
-      "userRole=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-    router.push("/");
-    router.refresh();
+  const handleLogout = async () => {
+    try {
+      // 1. קריאה לשרת לניקוי ה-Cookies המאובטחים
+      await fetch("/api/auth/logout", { method: "POST" });
+    } catch (err) {
+      console.error("Logout API failed, falling back to client cleanup:", err);
+    }
+
+    // 2. ניקוי גיבוי יסודי של כל ה-Cookies בצד לקוח (כולל userName ו-userRole)
+    const cookiesToClear = ["userId", "userRole", "userName"];
+    cookiesToClear.forEach((name) => {
+      document.cookie = `${name}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;`;
+    });
+
+    // 3. איפוס הניווט ומעבר לדף ההתחברות
+    window.location.href = "/auth";
   };
 
   const isActive = (path: string) => pathname === path;
