@@ -1,6 +1,7 @@
 "use server";
 
 import { cookies } from "next/headers";
+import clientPromise from "@/lib/mongodb";
 
 // פונקציית ניקוי הטלפון
 function cleanPhoneNumber(phone: string): string {
@@ -25,84 +26,73 @@ interface LoginFormData {
 }
 
 // ========================================================
-// בדיקה דינמית אם המייל קיים במערכת (בזמן אמת)
+// 1. בדיקה דינמית אם המייל קיים במערכת
 // ========================================================
 export async function checkEmailAction(email: string) {
   try {
     const cleanEmail = email.trim().toLowerCase();
+    const client = await clientPromise;
+    const db = client.db("site_monitor");
 
-    // ✅ השינוי כאן: פנייה ישירה ל-API הפנימי של Next.js
-    const response = await fetch(
-      `/api/auth/check-email?email=${encodeURIComponent(cleanEmail)}`,
-      {
-        method: "GET",
-        headers: { "Content-Type": "application/json" },
-      },
-    );
+    const existingUser = await db.collection("users").findOne({ email: cleanEmail });
 
-    const data = await response.json();
-
-    if (!response.ok) {
-      return {
-        success: false,
-        error: data.detail || "שגיאה בבדיקת כתובת האימייל",
-      };
-    }
-
-    return { success: true, exists: data.exists };
+    return { success: true, exists: !!existingUser };
   } catch (error) {
     console.error("Check Email Action Error:", error);
-    return { success: false, error: "שגיאה בתקשורת מול השרת" };
+    return { success: false, error: "שגיאה בחיבור לסיסמת הנתונים" };
   }
 }
 
 // ========================================================
-// 1. פונקציית הרשמה - סנכרון קוקיז מלא מול ה-Middleware
+// 2. פונקציית הרשמה
 // ========================================================
 export async function registerUserAction(formData: RegisterFormData) {
   try {
     const cleanPhone = cleanPhoneNumber(formData.phone);
     const cleanEmail = formData.email.trim().toLowerCase();
 
-    const response = await fetch("/api/register", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        name: formData.name.trim(),
-        email: cleanEmail,
-        phone: cleanPhone,
-        password: formData.password,
-        initialUrl: formData.initialUrl.trim(),
-      }),
-    });
+    const client = await clientPromise;
+    const db = client.db("site_monitor");
+    const usersCollection = db.collection("users");
 
-    const data = await response.json();
+    // בדיקה אם המשתמש כבר קיים
+    const existingUser = await usersCollection.findOne({ email: cleanEmail });
+    if (existingUser) {
+      return { success: false, error: "כתובת האימייל כבר רשומה במערכת" };
+    }
 
-    if (!response.ok) {
-      return {
-        success: false,
-        error: data.detail || "שגיאה בתהליך ההרשמה מהשרת",
-      };
+    const newUser = {
+      name: formData.name.trim(),
+      email: cleanEmail,
+      phone: cleanPhone,
+      password: formData.password,
+      role: "customer",
+      createdAt: new Date(),
+    };
+
+    const result = await usersCollection.insertOne(newUser);
+    const userIdStr = result.insertedId.toString();
+
+    // אם הזינו אתר ראשוני בסריקה, נוסיף אותו לאוסף האתרים
+    if (formData.initialUrl && formData.initialUrl.trim()) {
+      await db.collection("sites").insertOne({
+        userId: userIdStr,
+        url: formData.initialUrl.trim(),
+        createdAt: new Date(),
+      });
     }
 
     const cookieStore = await cookies();
-    const isUserAdmin = data.isAdmin || data.role === "admin" || false;
-    const assignedRole = isUserAdmin ? "admin" : "customer";
+    const assignedRole = "customer";
+    const finalName = formData.name.trim();
 
-    // ניקוי שם המשתמש למניעת שגיאות כתיב ותצוגה
-    const finalName = (data.name || formData.name || "").trim();
-
-    // שמירת מזהה המשתמש לעבודה ב-Client Side
-    cookieStore.set("userId", data.userId, {
+    cookieStore.set("userId", userIdStr, {
       httpOnly: false,
       secure: process.env.NODE_ENV === "production",
-      maxAge: 60 * 60 * 24 * 7, // שבוע אחד
+      maxAge: 60 * 60 * 24 * 7,
       path: "/",
     });
 
-    // שמירת userRole עבור תאימות מלאה ל-Middleware
     cookieStore.set("userRole", assignedRole, {
       httpOnly: false,
       secure: process.env.NODE_ENV === "production",
@@ -110,7 +100,6 @@ export async function registerUserAction(formData: RegisterFormData) {
       path: "/",
     });
 
-    // 🏆 שמירת שם המשתמש ישירות בקוקיז לביצועים אופטימליים בדשבורד
     cookieStore.set("userName", finalName, {
       httpOnly: false,
       secure: process.env.NODE_ENV === "production",
@@ -121,57 +110,45 @@ export async function registerUserAction(formData: RegisterFormData) {
     return {
       success: true,
       userRole: assignedRole,
-      message: "החשבון נוצר בהצלחה והאתר הראשון נוסף לניטור!",
+      message: "החשבון נוצר בהצלחה!",
     };
   } catch (error) {
     console.error("Registration Action Error:", error);
     return {
       success: false,
-      error: "לא ניתן היה ליצור קשר עם שרת הפיתוח בפייתון",
+      error: "שגיאה ביצירת החשבון במסד הנתונים",
     };
   }
 }
 
 // ========================================================
-// 2. פונקציית התחברות - יישור קו הרמטי
+// 3. פונקציית התחברות
 // ========================================================
 export async function loginUserAction(formData: LoginFormData) {
   try {
-    const response = await fetch("/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email: formData.email.trim().toLowerCase(),
-        password: formData.password,
-      }),
-    });
+    const cleanEmail = formData.email.trim().toLowerCase();
 
-    const data = await response.json();
+    const client = await clientPromise;
+    const db = client.db("site_monitor");
+    const user = await db.collection("users").findOne({ email: cleanEmail });
 
-    if (!response.ok) {
-      return { success: false, error: data.detail || "אימייל או סיסמה שגויים" };
+    if (!user || user.password !== formData.password) {
+      return { success: false, error: "אימייל או סיסמה שגויים" };
     }
 
+    const userIdStr = user._id.toString();
+    const assignedRole = user.role || "customer";
+    const finalName = user.name || cleanEmail.split("@")[0] || "מנטר מערכת";
+
     const cookieStore = await cookies();
-    const isUserAdmin = data.isAdmin || data.role === "admin" || false;
-    const assignedRole = isUserAdmin ? "admin" : "customer";
 
-    // שליפת שם נקי מהשרת, או גיבוי מהחלק הראשון של האימייל במידה והשדה חסר
-    const finalName = (
-      data.name ||
-      data.email?.split("@")[0] ||
-      "מנטר מערכת"
-    ).trim();
-
-    // שמירת ה-userId בקוקיז
-    cookieStore.set("userId", data.userId, {
+    cookieStore.set("userId", userIdStr, {
       httpOnly: false,
       secure: process.env.NODE_ENV === "production",
       maxAge: 60 * 60 * 24 * 7,
       path: "/",
     });
 
-    // שמירת הסטטוס כ-userRole למניעת נעילת האדמין מחוץ לפנל
     cookieStore.set("userRole", assignedRole, {
       httpOnly: false,
       secure: process.env.NODE_ENV === "production",
@@ -179,7 +156,6 @@ export async function loginUserAction(formData: LoginFormData) {
       path: "/",
     });
 
-    // 🏆 שמירת שם המשתמש ישירות בקוקיז לביצועים אופטימליים בדשבורד
     cookieStore.set("userName", finalName, {
       httpOnly: false,
       secure: process.env.NODE_ENV === "production",
@@ -190,10 +166,10 @@ export async function loginUserAction(formData: LoginFormData) {
     return {
       success: true,
       userRole: assignedRole,
-      message: data.message,
+      message: "התחברת בהצלחה!",
     };
   } catch (error) {
     console.error("Login Action Error:", error);
-    return { success: false, error: "לא ניתן היה ליצור קשר עם שרת הפיתוח" };
+    return { success: false, error: "שגיאה בתהליך ההתחברות" };
   }
 }

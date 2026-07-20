@@ -19,7 +19,7 @@ export async function GET(request: Request) {
     });
 
     const responseTime = ((Date.now() - startTime) / 1000).toFixed(2) + 's';
-    const isOnline = res.ok;
+    const isOnline = res.ok || (res.status >= 300 && res.status < 400);
 
     // בדיקת כותרות אבטחה (Security Headers)
     const hasXFrame = res.headers.has('x-frame-options');
