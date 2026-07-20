@@ -35,7 +35,7 @@ function AddSiteContent() {
   useEffect(() => {
     if (!finalUserId) return;
 
-    fetch(`process.env.NEXT_PUBLIC_API_URL/list-sites?user_id=${finalUserId}`)
+    fetch(`/api/list-sites?user_id=${finalUserId}`)
       .then((res) => (res.ok ? res.json() : []))
       .then((sites) => {
         if (sites.length >= MAX_SITES_LIMIT) {
@@ -59,7 +59,7 @@ function AddSiteContent() {
       if (!finalUserId)
         throw new Error("מזהה משתמש לא נמצא במערכת, אנא התחבר מחדש.");
 
-      const res = await fetch("process.env.NEXT_PUBLIC_API_URL/add-site", {
+      const res = await fetch("/api/add-site", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

@@ -81,7 +81,7 @@ function DashboardContent() {
     if (!targetUserId) return;
 
     // הרצת ה-Fetch האסינכרוני בלבד בתוך האפקט
-    fetch(`process.env.NEXT_PUBLIC_API_URL/list-sites?user_id=${targetUserId}`)
+    fetch(`/api/list-sites?user_id=${targetUserId}`)
       .then((res) => {
         if (!res.ok) throw new Error("נכשל בטעינת רשימת האתרים");
         return res.json();

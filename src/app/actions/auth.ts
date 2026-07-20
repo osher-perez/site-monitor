@@ -31,8 +31,9 @@ export async function checkEmailAction(email: string) {
   try {
     const cleanEmail = email.trim().toLowerCase();
 
+    // ✅ השינוי כאן: פנייה ישירה ל-API הפנימי של Next.js
     const response = await fetch(
-      `process.env.NEXT_PUBLIC_API_URL/auth/check-email?email=${encodeURIComponent(cleanEmail)}`,
+      `/api/auth/check-email?email=${encodeURIComponent(cleanEmail)}`,
       {
         method: "GET",
         headers: { "Content-Type": "application/json" },
@@ -51,7 +52,7 @@ export async function checkEmailAction(email: string) {
     return { success: true, exists: data.exists };
   } catch (error) {
     console.error("Check Email Action Error:", error);
-    return { success: false, error: "לא ניתן היה ליצור קשר עם שרת הפיתוח" };
+    return { success: false, error: "שגיאה בתקשורת מול השרת" };
   }
 }
 
@@ -63,22 +64,19 @@ export async function registerUserAction(formData: RegisterFormData) {
     const cleanPhone = cleanPhoneNumber(formData.phone);
     const cleanEmail = formData.email.trim().toLowerCase();
 
-    const response = await fetch(
-      "process.env.NEXT_PUBLIC_API_URL/auth/register",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name: formData.name.trim(),
-          email: cleanEmail,
-          phone: cleanPhone,
-          password: formData.password,
-          initialUrl: formData.initialUrl.trim(),
-        }),
+    const response = await fetch("/api/register", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
       },
-    );
+      body: JSON.stringify({
+        name: formData.name.trim(),
+        email: cleanEmail,
+        phone: cleanPhone,
+        password: formData.password,
+        initialUrl: formData.initialUrl.trim(),
+      }),
+    });
 
     const data = await response.json();
 
@@ -139,7 +137,7 @@ export async function registerUserAction(formData: RegisterFormData) {
 // ========================================================
 export async function loginUserAction(formData: LoginFormData) {
   try {
-    const response = await fetch("process.env.NEXT_PUBLIC_API_URL/auth/login", {
+    const response = await fetch("/api/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

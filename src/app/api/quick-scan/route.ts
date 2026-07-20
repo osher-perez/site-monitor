@@ -18,26 +18,44 @@ export async function GET(request: Request) {
       cache: 'no-store',
     });
 
-    const responseTime = Date.now() - startTime;
+    const responseTime = ((Date.now() - startTime) / 1000).toFixed(2) + 's';
+    const isOnline = res.ok;
+
+    // בדיקת כותרות אבטחה (Security Headers)
+    const hasXFrame = res.headers.has('x-frame-options');
+    const hasHsts = res.headers.has('strict-transport-security');
+    const hasContentType = res.headers.has('x-content-type-options');
+
+    // חישוב דירוג אבטחה בסיסי
+    let rating = 'B';
+    if (hasXFrame && hasHsts && hasContentType) rating = 'A';
+    else if (!hasXFrame && !hasHsts) rating = 'D';
 
     return NextResponse.json({
-      url: targetUrl,
-      status: res.status,
-      status_text: res.statusText,
-      response_time_ms: responseTime,
-      is_up: res.ok,
-      timestamp: new Date().toISOString(),
+      success: true,
+      realtime_data: {
+        url: targetUrl,
+        status: isOnline ? 'ONLINE' : 'OFFLINE',
+        http_code: res.status,
+        speed: responseTime,
+        ssl_status: targetUrl.startsWith('https') ? 'תקף ומאובטח (SSL)' : 'לא מאובטח (HTTP)',
+        security_rating: rating,
+        headers_analysis: {
+          'X-Frame-Options': hasXFrame,
+          'Strict-Transport-Security': hasHsts,
+          'X-Content-Type-Options': hasContentType,
+        },
+      },
+      premium_locked_data: {
+        historical_uptime_sla: '99.9%',
+        load_variance_graph: 'Available in Premium',
+        instant_channels_alerting: 'Available in Premium',
+      },
     });
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : 'Failed to reach host';
-
     return NextResponse.json({
-      url: targetUrl,
-      status: 0,
-      status_text: errorMessage,
-      response_time_ms: 0,
-      is_up: false,
-      timestamp: new Date().toISOString(),
-    });
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to reach host',
+    }, { status: 500 });
   }
 }

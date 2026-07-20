@@ -56,7 +56,7 @@ function ViewSiteContent() {
   const fetchHistoryData = () => {
     if (!siteUrl || !targetUserId) return;
     return fetch(
-      `process.env.NEXT_PUBLIC_API_URL/site-history?url=${encodeURIComponent(siteUrl)}&user_id=${targetUserId}`,
+      `/api/site-history?url=${encodeURIComponent(siteUrl)}&user_id=${targetUserId}`,
     )
       .then((res) => {
         if (!res.ok) throw new Error("נכשל בטעינת היסטוריית האתר מהשרת");
@@ -121,9 +121,7 @@ function ViewSiteContent() {
     setActionMessage("⚡ מריץ בדיקת שרת יזומה ומעדכן את ההיסטוריה...");
 
     try {
-      const res = await fetch(
-        `process.env.NEXT_PUBLIC_API_URL/check?url=${encodeURIComponent(siteUrl)}`,
-      );
+      const res = await fetch(`/api/check?url=${encodeURIComponent(siteUrl)}`);
       const data = await res.json();
       if (!res.ok || data.status === "ERROR")
         throw new Error(data.message || "הבדיקה היזומה נכשלה");
@@ -159,7 +157,7 @@ function ViewSiteContent() {
 
     try {
       const res = await fetch(
-        `process.env.NEXT_PUBLIC_API_URL/delete-site?url=${encodeURIComponent(siteUrl)}&user_id=${targetUserId}`,
+        `/api/delete-site?url=${encodeURIComponent(siteUrl)}&user_id=${targetUserId}`,
         { method: "DELETE" },
       );
       const data = await res.json();
@@ -182,7 +180,7 @@ function ViewSiteContent() {
     setActionMessage("📝 מעדכן את כתובת האתר ומריץ סריקה ראשונית...");
 
     try {
-      const res = await fetch("process.env.NEXT_PUBLIC_API_URL/update-site", {
+      const res = await fetch("/api/update-site", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
