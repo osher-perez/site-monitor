@@ -124,21 +124,22 @@ function ViewSiteContent() {
     : "/dashboard";
 
   // ⚡ הרצת בדיקה יזומה
+ // ⚡ לוגיקת הרצת בדיקה ידנית יזומה בזמן אמת (On-Demand Check)
   const handleManualCheck = async () => {
-    if (!stats?.url || actionLoading) return;
+    if (!stats?.url || actionLoading || !targetUserId) return;
     setActionLoading(true);
     setActionMessage("⚡ מריץ בדיקת שרת יזומה ומעדכן את ההיסטוריה...");
 
     try {
-      const res = await fetch("/api/add-site", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: stats.url, user_id: targetUserId }),
-      });
+      // 🎯 קריאה ל-site-details עם forcePing=true כדי להכריח בדיקה מחדש בלייב
+      const res = await fetch(
+        `/api/site-details?url=${encodeURIComponent(stats.url)}&user_id=${targetUserId}&forceCheck=true`
+      );
       const data = await res.json();
+      
       if (!res.ok) throw new Error(data.error || data.detail || "הבדיקה היזומה נכשלה");
 
-      setActionMessage("✨ הבדיקה הושלמה בהצלחה! מרענן נתונים...");
+      setActionMessage("✨ הבדיקה הושלמה בהצלחה! הנתונים והסטטוס עודכנו בלייב.");
       await fetchHistoryData();
 
       setTimeout(() => {

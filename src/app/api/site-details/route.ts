@@ -7,8 +7,9 @@ async function pingSite(url: string) {
   const startTime = Date.now();
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 4000);
+    const timeoutId = setTimeout(() => controller.abort(), 6000);
 
+    // ניקוי והבטחת פרוטוקול תקין
     let targetUrl = url.trim().replace(/^\/+/, "");
     if (!targetUrl.startsWith("http://") && !targetUrl.startsWith("https://")) {
       targetUrl = `https://${targetUrl}`;
@@ -17,12 +18,17 @@ async function pingSite(url: string) {
     const res = await fetch(targetUrl, {
       method: "GET",
       signal: controller.signal,
-      headers: { "User-Agent": "SiteMonitor-Bot/1.0" },
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      },
     });
 
     clearTimeout(timeoutId);
     const responseTime = Date.now() - startTime;
-    const isUp = res.status >= 200 && res.status < 400;
+    
+    // אתר נחשב ONLINE אם סטטוס התשובה הוא בין 200 ל-399, או 403/401 (השרת למעלה ומגיב)
+    const isUp = (res.status >= 200 && res.status < 400) || res.status === 403 || res.status === 401;
 
     return {
       status: isUp ? "ONLINE" : "OFFLINE",
@@ -30,7 +36,7 @@ async function pingSite(url: string) {
       statusCode: res.status,
       isUp,
     };
-  } catch {
+  } catch (err) {
     return {
       status: "OFFLINE",
       responseTime: Date.now() - startTime,
