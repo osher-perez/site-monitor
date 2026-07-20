@@ -5,49 +5,77 @@ import { ObjectId, Filter, Document } from "mongodb";
 export async function PUT(request: Request) {
   try {
     const body = await request.json();
-    const { siteId, url } = body;
+    const { old_url, new_url, site_id, user_id } = body;
 
-    if (!siteId || !url) {
+    if ((!old_url && !site_id) || !new_url || !user_id) {
       return NextResponse.json(
-        { error: "מזהה אתר וכתובת URL חסרים" },
+        { detail: "חסרים נתונים חיוניים לעדכון הכתובת" },
         { status: 400 }
       );
     }
 
-    let cleanUrl = url.trim();
-    if (!cleanUrl.startsWith("http://") && !cleanUrl.startsWith("https://")) {
-      cleanUrl = `https://${cleanUrl}`;
+    // 🧼 ניקוי יסודי של הכתובת החדשה
+    let cleanNewUrl = new_url.trim().replace(/^\/+/, "");
+    if (!cleanNewUrl.startsWith("http://") && !cleanNewUrl.startsWith("https://")) {
+      cleanNewUrl = `https://${cleanNewUrl}`;
     }
 
     const client = await clientPromise;
     const db = client.db("site_monitor");
 
-    const filter: Filter<Document> = ObjectId.isValid(siteId)
-      ? { _id: new ObjectId(siteId) }
-      : { _id: siteId as unknown as ObjectId };
+    const queryConditions: Filter<Document>[] = [];
 
-    const result = await db.collection("sites").updateOne(filter, {
+    if (site_id && ObjectId.isValid(site_id)) {
+      queryConditions.push({ _id: new ObjectId(site_id) });
+    }
+
+    if (old_url) {
+      const cleanOld = old_url.trim();
+      const normalizedOld = cleanOld.replace(/^\/+/, "");
+      queryConditions.push({ url: cleanOld });
+      queryConditions.push({ url: normalizedOld });
+      queryConditions.push({ url: `https://${normalizedOld}` });
+    }
+
+    const userConditions: Filter<Document>[] = [
+      { userId: user_id },
+      { user_id: user_id },
+    ];
+    if (ObjectId.isValid(user_id)) {
+      userConditions.push({ userId: new ObjectId(user_id) });
+      userConditions.push({ user_id: new ObjectId(user_id) });
+    }
+
+    const finalQuery = {
+      $and: [
+        { $or: queryConditions },
+        { $or: userConditions },
+      ],
+    };
+
+    const updateResult = await db.collection("sites").updateOne(finalQuery, {
       $set: {
-        url: cleanUrl,
-        updatedAt: new Date(),
+        url: cleanNewUrl,
+        lastChecked: new Date(),
       },
     });
 
-    if (result.matchedCount === 0) {
+    if (updateResult.matchedCount === 0) {
       return NextResponse.json(
-        { error: "האתר לא נמצא לעדכון" },
+        { detail: "האתר לעדכון לא נמצא במסד הנתונים" },
         { status: 404 }
       );
     }
 
     return NextResponse.json({
       success: true,
-      message: "כתובת האתר עודכנה בהצלחה",
+      message: "כתובת ה-URL עודכנה בהצלחה",
+      updatedUrl: cleanNewUrl,
     });
   } catch (error) {
     console.error("Update Site Error:", error);
     return NextResponse.json(
-      { error: "שגיאה בעדכון האתר במסד הנתונים" },
+      { detail: "שגיאה פנימית בעדכון האתר" },
       { status: 500 }
     );
   }

@@ -2,66 +2,127 @@ import { NextResponse } from "next/server";
 import clientPromise from "@/lib/mongodb";
 import { ObjectId, Filter, Document } from "mongodb";
 
+// פונקציית בדיקה בלייב
+async function pingSite(url: string) {
+  const startTime = Date.now();
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4000);
+
+    let targetUrl = url.trim().replace(/^\/+/, "");
+    if (!targetUrl.startsWith("http://") && !targetUrl.startsWith("https://")) {
+      targetUrl = `https://${targetUrl}`;
+    }
+
+    const res = await fetch(targetUrl, {
+      method: "GET",
+      signal: controller.signal,
+      headers: { "User-Agent": "SiteMonitor-Bot/1.0" },
+    });
+
+    clearTimeout(timeoutId);
+    const responseTime = Date.now() - startTime;
+    const isUp = res.status >= 200 && res.status < 400;
+
+    return {
+      status: isUp ? "ONLINE" : "OFFLINE",
+      responseTime,
+      statusCode: res.status,
+      isUp,
+    };
+  } catch {
+    return {
+      status: "OFFLINE",
+      responseTime: Date.now() - startTime,
+      statusCode: 0,
+      isUp: false,
+    };
+  }
+}
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const siteId = searchParams.get("id") || searchParams.get("siteId");
-
-    if (!siteId) {
-      return NextResponse.json(
-        { error: "מזהה אתר חסר בבקשה" },
-        { status: 400 }
-      );
-    }
+    const urlParam = searchParams.get("url");
+    const idParam = searchParams.get("id");
+    const userId = searchParams.get("user_id") || searchParams.get("userId");
 
     const client = await clientPromise;
     const db = client.db("site_monitor");
 
-    // שאילתה גמישה למציאת האתר
-    const filter: Filter<Document> = ObjectId.isValid(siteId)
-      ? { _id: new ObjectId(siteId) }
-      : { _id: siteId as unknown as ObjectId };
+    const queryConditions: Filter<Document>[] = [];
 
-    const site = await db.collection("sites").findOne(filter);
+    if (idParam && ObjectId.isValid(idParam)) {
+      queryConditions.push({ _id: new ObjectId(idParam) });
+    }
 
-    if (!site) {
-      return NextResponse.json(
-        { error: "האתר לא נמצא במסד הנתונים" },
-        { status: 404 }
+    if (urlParam) {
+      const cleanUrl = urlParam.trim();
+      const normalizedUrl = cleanUrl.replace(/^\/+/, "");
+      queryConditions.push({ url: cleanUrl });
+      queryConditions.push({ url: normalizedUrl });
+      queryConditions.push({ url: `https://${normalizedOldUrl(cleanUrl)}` });
+    }
+
+    function normalizedOldUrl(u: string) {
+      return u.trim().replace(/^\/+/, "").replace(/^https?:\/\//, "");
+    }
+
+    let site = null;
+    if (queryConditions.length > 0) {
+      site = await db.collection("sites").findOne({ $or: queryConditions });
+    }
+
+    if (!site && urlParam) {
+      // אם לא נמצא ב-DB, ניצור אובייקט זמני מתוקן
+      let clean = urlParam.trim().replace(/^\/+/, "");
+      if (!clean.startsWith("http")) clean = `https://${clean}`;
+      site = { url: clean, userId };
+    }
+
+    const targetUrl = site?.url || urlParam || "";
+
+    // 🚀 מריצים בדיקת לייב לקבלת סטטוס עדכני
+    const liveCheck = await pingSite(targetUrl);
+
+    // עדכון הסטטוס ב-DB
+    if (site?._id) {
+      await db.collection("sites").updateOne(
+        { _id: site._id },
+        {
+          $set: {
+            status: liveCheck.status,
+            isUp: liveCheck.isUp,
+            responseTime: liveCheck.responseTime,
+            lastChecked: new Date(),
+          },
+        }
       );
     }
 
-    // שליפת היסטוריית בדיקות מ-MongoDB אם קיימת, או החזרת נתוני ברירת מחדל
-    const history = await db
-      .collection("checks")
-      .find({ siteId: site._id.toString() })
-      .sort({ createdAt: -1 })
-      .limit(20)
-      .toArray();
+    // שליפת הסטוריית לוגים או יצירת לוג ראשוני
+    const historyLog = {
+      timestamp: new Date().toISOString(),
+      status: liveCheck.status,
+      response_time: liveCheck.responseTime,
+      isUp: liveCheck.isUp,
+    };
 
     return NextResponse.json({
-      success: true,
       site: {
-        _id: site._id.toString(),
-        id: site._id.toString(),
-        url: site.url,
-        status: site.status || "ONLINE",
-        isUp: site.status === "ONLINE" || site.isUp === true,
-        lastChecked: site.lastChecked || site.createdAt || new Date(),
-        createdAt: site.createdAt || new Date(),
-        responseTime: site.responseTime || 120, // זמן תגובה במילישניות
+        _id: site?._id?.toString() || "",
+        url: targetUrl,
+        status: liveCheck.status,
+        isUp: liveCheck.isUp,
       },
-      history: history.map((check) => ({
-        id: check._id.toString(),
-        status: check.status || "ONLINE",
-        responseTime: check.responseTime || 120,
-        timestamp: check.createdAt || new Date(),
-      })),
+      uptime_percentage: liveCheck.isUp ? 100 : 0,
+      average_response_time: liveCheck.responseTime,
+      history: [historyLog],
     });
   } catch (error) {
     console.error("Site Details Error:", error);
     return NextResponse.json(
-      { error: "לא ניתן היה ליצור קשר עם שרת הניטור או שהנתונים אינם קיימים" },
+      { error: "שגיאה בשליפת פרטי האתר" },
       { status: 500 }
     );
   }
