@@ -39,7 +39,7 @@ export const FreeScanner = () => {
 
     try {
       const response = await fetch(
-        `/api-backend/tools/quick-scan?url=${encodeURIComponent(url)}`,
+        `https://site-monitor-backend.onrender.com/tools/quick-scan?url=${encodeURIComponent(url)}`,
       );
       const data = await response.json();
 
