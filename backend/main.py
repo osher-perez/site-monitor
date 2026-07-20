@@ -13,11 +13,18 @@ from backend.utils import run_and_save_check
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Site Monitor API")
+app = FastAPI()
+
+# רשימת הדומיינים המורשים (CORS)
+origins = [
+    "http://localhost:3000",
+    "https://site-monitor-five.vercel.app",  # הדומיין הראשי ב-Vercel
+]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  
+    allow_origins=origins,
+    allow_origin_regex=r"https://.*\.vercel\.app",  # תומך בכל Preview Deployments של Vercel
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -26,7 +33,7 @@ app.add_middleware(
 # חיבור כל הראוטרים המבוזרים של האפליקציה
 app.include_router(auth_router)
 app.include_router(freeScan.router)
-app.include_router(sites_router) # הראוטר החדש שפיצלנו!
+app.include_router(sites_router)
 
 @app.on_event("startup")
 @repeat_every(seconds=3600)
@@ -56,7 +63,7 @@ def check_site(url: str):
     
     return {"status": "SUCCESS", "message": f"Checked {clean_url}"}
 
-# הראוט המיוחד של האדמין נשאר פה זמנית כראוט עוקף
+# הראוט המיוחד של האדמין
 @app.get("/admin/overview")
 def get_admin_overview():
     try:
