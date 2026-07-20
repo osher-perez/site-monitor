@@ -2,10 +2,14 @@
 
 import Link from "next/link";
 
-interface Site {
+export interface Site {
+  _id?: string;
+  id?: string;
   url: string;
   status: string;
-  last_checked: string;
+  isUp?: boolean;
+  last_checked?: string;
+  lastChecked?: string;
 }
 
 interface MonitoredSitesGridProps {

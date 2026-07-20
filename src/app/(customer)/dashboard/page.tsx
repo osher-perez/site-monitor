@@ -4,20 +4,14 @@ import { useEffect, useState, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
-// ייבוא הקומפוננטות המבודדות מהארכיטקטורה החדשה
+// ייבוא הקומפוננטות המבודדות
 import { WelcomeBanner } from "@/components/dashboard/WelcomeBanner";
 import {
   NotificationFeed,
   SystemMessage,
 } from "@/components/dashboard/NotificationFeed";
 import { QuickActionGate } from "@/components/dashboard/QuickActionGate";
-import { MonitoredSitesGrid } from "@/components/dashboard/MonitoredSitesGrid";
-
-interface Site {
-  url: string;
-  status: string;
-  last_checked: string;
-}
+import { MonitoredSitesGrid, Site } from "@/components/dashboard/MonitoredSitesGrid";
 
 interface UserProfile {
   name: string;
@@ -39,7 +33,6 @@ function DashboardContent() {
 
   const MAX_SITES_LIMIT = 3;
 
-  // 1. חילוץ מוקדם וסינכרוני של המשתנים מחוץ לסטייט ומחוץ לאפקט
   const loggedInUserId = getCookie("userId");
   const userRole = getCookie("userRole");
   const cookieUserName = getCookie("userName");
@@ -50,7 +43,6 @@ function DashboardContent() {
   );
   const targetUserId = isAdminAction ? viewAsId : loggedInUserId;
 
-  // 2. אתחול סטטי וסינכרוני של פרופיל המשתמש
   const [profile] = useState<UserProfile | null>(() => {
     if (!targetUserId) return null;
     if (isAdminAction) {
@@ -62,37 +54,68 @@ function DashboardContent() {
     };
   });
 
-  // 3. אתחול חכם של הודעת השגיאה ומצב הטעינה - מונע קריסות ורינדורים כפולים
   const [errorMsg] = useState<string | null>(() => {
     if (!targetUserId) return "מזהה משתמש לא נמצא. נא להתחבר מחדש.";
     return null;
   });
 
-  const [loading, setLoading] = useState(() => {
-    if (!targetUserId) return false; // אם אין משתמש, לא צריך לטעון כלום
-    return true;
-  });
-
+  const [loading, setLoading] = useState(true);
   const [sites, setSites] = useState<Site[]>([]);
   const [messages, setMessages] = useState<SystemMessage[]>([]);
 
   useEffect(() => {
-    // אם חסר מזהה משתמש, עצרנו כבר בשלב אתחול הסטייט העליון
-    if (!targetUserId) return;
+    if (!targetUserId) {
+      setLoading(false);
+      return;
+    }
 
-    // הרצת ה-Fetch האסינכרוני בלבד בתוך האפקט
+    let isMounted = true;
+
     fetch(`/api/list-sites?user_id=${targetUserId}`)
       .then((res) => {
         if (!res.ok) throw new Error("נכשל בטעינת רשימת האתרים");
         return res.json();
       })
-      .then((data) => {
-        setSites(data);
-        setLoading(false);
+      .then((data: unknown) => {
+        if (!isMounted) return;
+
+        if (Array.isArray(data)) {
+          const formatted: Site[] = data.map((item: Record<string, unknown>, index: number) => {
+            const rawId = item._id || item.id;
+            const siteId = typeof rawId === "string" ? rawId : `site-${index}`;
+            const url = typeof item.url === "string" ? item.url : "";
+            const status = typeof item.status === "string" ? item.status : "ONLINE";
+            const lastChecked =
+              (typeof item.last_checked === "string" && item.last_checked) ||
+              (typeof item.lastChecked === "string" && item.lastChecked) ||
+              new Date().toISOString();
+            const isUp =
+              typeof item.isUp === "boolean"
+                ? item.isUp
+                : status === "ONLINE";
+
+            return {
+              _id: siteId,
+              id: siteId,
+              url,
+              status,
+              isUp,
+              last_checked: lastChecked,
+              lastChecked,
+            } as Site;
+          });
+
+          setSites(formatted);
+        } else {
+          setSites([]);
+        }
       })
       .catch((err: unknown) => {
         console.error("Dashboard fetch error:", err);
-        setLoading(false);
+        if (isMounted) setSites([]);
+      })
+      .finally(() => {
+        if (isMounted) setLoading(false);
       });
 
     setMessages([
@@ -107,6 +130,10 @@ function DashboardContent() {
         text: "🤖 בוט הטלגרם זמין! ניתן לחבר אותו באזור ההגדרות לקבלת התראות לנייד.",
       },
     ]);
+
+    return () => {
+      isMounted = false;
+    };
   }, [targetUserId]);
 
   if (loading) {
@@ -137,7 +164,6 @@ function DashboardContent() {
 
   return (
     <div className="max-w-6xl mx-auto space-y-8 text-right" dir="rtl">
-      {/* באנר מצב אדמין משופר ומיושר לעיצוב העסקי החדש */}
       {isAdminAction && (
         <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl flex justify-between items-center text-amber-900 text-xs font-bold shadow-sm animate-in slide-in-from-top-2">
           <div className="flex items-center gap-2">
@@ -155,7 +181,6 @@ function DashboardContent() {
         </div>
       )}
 
-      {/* 👤 קומפוננטה 1: ברוך הבא וסטטוס מנוי */}
       {profile && (
         <WelcomeBanner
           name={profile.name}
@@ -165,17 +190,14 @@ function DashboardContent() {
         />
       )}
 
-      {/* 🔔 קומפוננטה 2: פיד הודעות מערכת */}
       <NotificationFeed messages={messages} />
 
-      {/* 🔒 קומפוננטה 3: כותרת וכפתור הוספה (Soft Gate) */}
       <QuickActionGate
         isLimitReached={isLimitReached}
         isImpersonating={isAdminAction}
         viewAsId={viewAsId}
       />
 
-      {/* 🌐 קומפוננטה 4: גריד כרטיסי האתרים המנוטרים */}
       <MonitoredSitesGrid
         sites={sites}
         isImpersonating={isAdminAction}
