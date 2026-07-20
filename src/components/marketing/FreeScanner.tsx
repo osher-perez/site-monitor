@@ -39,8 +39,8 @@ export const FreeScanner = () => {
 
     try {
       const response = await fetch(
-        `process.env.NEXT_PUBLIC_API_URL/tools/quick-scan?url=${encodeURIComponent(url)}`,
-      );
+  `${process.env.NEXT_PUBLIC_API_URL}/tools/quick-scan?url=${encodeURIComponent(url)}`,
+);
       const data = await response.json();
 
       if (response.ok && data.success) {
