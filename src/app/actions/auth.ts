@@ -30,16 +30,22 @@ interface LoginFormData {
 export async function checkEmailAction(email: string) {
   try {
     const cleanEmail = email.trim().toLowerCase();
-    
-    const response = await fetch(`http://localhost:8000/auth/check-email?email=${encodeURIComponent(cleanEmail)}`, {
-      method: "GET",
-      headers: { "Content-Type": "application/json" },
-    });
+
+    const response = await fetch(
+      `process.env.NEXT_PUBLIC_API_URL/auth/check-email?email=${encodeURIComponent(cleanEmail)}`,
+      {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+      },
+    );
 
     const data = await response.json();
 
     if (!response.ok) {
-      return { success: false, error: data.detail || "שגיאה בבדיקת כתובת האימייל" };
+      return {
+        success: false,
+        error: data.detail || "שגיאה בבדיקת כתובת האימייל",
+      };
     }
 
     return { success: true, exists: data.exists };
@@ -57,19 +63,22 @@ export async function registerUserAction(formData: RegisterFormData) {
     const cleanPhone = cleanPhoneNumber(formData.phone);
     const cleanEmail = formData.email.trim().toLowerCase();
 
-    const response = await fetch("http://localhost:8000/auth/register", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
+    const response = await fetch(
+      "process.env.NEXT_PUBLIC_API_URL/auth/register",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: formData.name.trim(),
+          email: cleanEmail,
+          phone: cleanPhone,
+          password: formData.password,
+          initialUrl: formData.initialUrl.trim(),
+        }),
       },
-      body: JSON.stringify({
-        name: formData.name.trim(),
-        email: cleanEmail,
-        phone: cleanPhone,
-        password: formData.password,
-        initialUrl: formData.initialUrl.trim(),
-      }),
-    });
+    );
 
     const data = await response.json();
 
@@ -83,7 +92,7 @@ export async function registerUserAction(formData: RegisterFormData) {
     const cookieStore = await cookies();
     const isUserAdmin = data.isAdmin || data.role === "admin" || false;
     const assignedRole = isUserAdmin ? "admin" : "customer";
-    
+
     // ניקוי שם המשתמש למניעת שגיאות כתיב ותצוגה
     const finalName = (data.name || formData.name || "").trim();
 
@@ -97,7 +106,7 @@ export async function registerUserAction(formData: RegisterFormData) {
 
     // שמירת userRole עבור תאימות מלאה ל-Middleware
     cookieStore.set("userRole", assignedRole, {
-      httpOnly: false, 
+      httpOnly: false,
       secure: process.env.NODE_ENV === "production",
       maxAge: 60 * 60 * 24 * 7,
       path: "/",
@@ -130,7 +139,7 @@ export async function registerUserAction(formData: RegisterFormData) {
 // ========================================================
 export async function loginUserAction(formData: LoginFormData) {
   try {
-    const response = await fetch("http://localhost:8000/auth/login", {
+    const response = await fetch("process.env.NEXT_PUBLIC_API_URL/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -148,9 +157,13 @@ export async function loginUserAction(formData: LoginFormData) {
     const cookieStore = await cookies();
     const isUserAdmin = data.isAdmin || data.role === "admin" || false;
     const assignedRole = isUserAdmin ? "admin" : "customer";
-    
+
     // שליפת שם נקי מהשרת, או גיבוי מהחלק הראשון של האימייל במידה והשדה חסר
-    const finalName = (data.name || data.email?.split("@")[0] || "מנטר מערכת").trim();
+    const finalName = (
+      data.name ||
+      data.email?.split("@")[0] ||
+      "מנטר מערכת"
+    ).trim();
 
     // שמירת ה-userId בקוקיז
     cookieStore.set("userId", data.userId, {
@@ -176,10 +189,10 @@ export async function loginUserAction(formData: LoginFormData) {
       path: "/",
     });
 
-    return { 
-      success: true, 
-      userRole: assignedRole, 
-      message: data.message 
+    return {
+      success: true,
+      userRole: assignedRole,
+      message: data.message,
     };
   } catch (error) {
     console.error("Login Action Error:", error);

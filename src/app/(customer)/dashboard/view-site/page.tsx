@@ -45,28 +45,43 @@ function ViewSiteContent() {
 
   const loggedInUserId = getCookie("userId");
   const userRole = getCookie("userRole");
-  const isAdminAction = !!(viewAsId && (userRole === "admin" || loggedInUserId === "admin"));
+  const isAdminAction = !!(
+    viewAsId &&
+    (userRole === "admin" || loggedInUserId === "admin")
+  );
   const targetUserId = isAdminAction ? viewAsId : loggedInUserId;
 
   const round = (num: number) => Math.round(num);
 
   const fetchHistoryData = () => {
     if (!siteUrl || !targetUserId) return;
-    return fetch(`http://localhost:8000/site-history?url=${encodeURIComponent(siteUrl)}&user_id=${targetUserId}`)
+    return fetch(
+      `process.env.NEXT_PUBLIC_API_URL/site-history?url=${encodeURIComponent(siteUrl)}&user_id=${targetUserId}`,
+    )
       .then((res) => {
         if (!res.ok) throw new Error("נכשל בטעינת היסטוריית האתר מהשרת");
         return res.json();
       })
       .then((data) => {
-        const uptime = data.uptime_percentage !== undefined ? data.uptime_percentage : 100;
-        const avgTime = data.average_response_time !== undefined ? data.average_response_time : 
-          (data.history?.length ? round(data.history.reduce((acc: number, log: HistoryLog) => acc + log.response_time, 0) / data.history.length) : 0);
+        const uptime =
+          data.uptime_percentage !== undefined ? data.uptime_percentage : 100;
+        const avgTime =
+          data.average_response_time !== undefined
+            ? data.average_response_time
+            : data.history?.length
+              ? round(
+                  data.history.reduce(
+                    (acc: number, log: HistoryLog) => acc + log.response_time,
+                    0,
+                  ) / data.history.length,
+                )
+              : 0;
 
         setStats({
           url: data.url,
           uptime_percentage: uptime,
           average_response_time: avgTime,
-          history: data.history || []
+          history: data.history || [],
         });
         setEditUrl(data.url);
         setLoading(false);
@@ -95,7 +110,9 @@ function ViewSiteContent() {
     });
   }, [siteUrl, targetUserId, isAdminAction]);
 
-  const backLink = isImpersonating ? `/dashboard?viewAs=${viewAsId}` : "/dashboard";
+  const backLink = isImpersonating
+    ? `/dashboard?viewAs=${viewAsId}`
+    : "/dashboard";
 
   // ⚡ לוגיקת הרצת בדיקה ידנית יזומה בזמן אמת (On-Demand Check)
   const handleManualCheck = async () => {
@@ -104,39 +121,56 @@ function ViewSiteContent() {
     setActionMessage("⚡ מריץ בדיקת שרת יזומה ומעדכן את ההיסטוריה...");
 
     try {
-      const res = await fetch(`http://localhost:8000/check?url=${encodeURIComponent(siteUrl)}`);
+      const res = await fetch(
+        `process.env.NEXT_PUBLIC_API_URL/check?url=${encodeURIComponent(siteUrl)}`,
+      );
       const data = await res.json();
-      if (!res.ok || data.status === "ERROR") throw new Error(data.message || "הבדיקה היזומה נכשלה");
+      if (!res.ok || data.status === "ERROR")
+        throw new Error(data.message || "הבדיקה היזומה נכשלה");
 
       setActionMessage("✨ הבדיקה הושלמה בהצלחה! מרענן נתונים...");
       await fetchHistoryData();
-      
+
       setTimeout(() => {
         setActionMessage(null);
         setActionLoading(false);
       }, 1500);
     } catch (err: unknown) {
       console.error("Manual check error:", err);
-      setActionMessage(err instanceof Error ? `❌ שגיאה: ${err.message}` : "שגיאה בביצוע הסריקה");
+      setActionMessage(
+        err instanceof Error
+          ? `❌ שגיאה: ${err.message}`
+          : "שגיאה בביצוע הסריקה",
+      );
       setActionLoading(false);
     }
   };
 
   const handleDeleteSite = async () => {
-    if (!window.confirm("🚨 האם אתה בטוח שברצונך למחוק אתר זה? פעולה זו אינה הפיכה!")) return;
+    if (
+      !window.confirm(
+        "🚨 האם אתה בטוח שברצונך למחוק אתר זה? פעולה זו אינה הפיכה!",
+      )
+    )
+      return;
     if (!siteUrl || !targetUserId) return;
     setActionLoading(true);
     setActionMessage("🧹 מוחק את האתר ונתוני הבדיקות מהשרת...");
 
     try {
-      const res = await fetch(`http://localhost:8000/delete-site?url=${encodeURIComponent(siteUrl)}&user_id=${targetUserId}`, { method: "DELETE" });
+      const res = await fetch(
+        `process.env.NEXT_PUBLIC_API_URL/delete-site?url=${encodeURIComponent(siteUrl)}&user_id=${targetUserId}`,
+        { method: "DELETE" },
+      );
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || "נכשל בתהליך המחיקה");
 
       setActionMessage("✅ האתר נמחק בהצלחה! מחזיר אותך לדשבורד...");
       setTimeout(() => router.push(backLink), 1500);
     } catch (err: unknown) {
-      setActionMessage(err instanceof Error ? `❌ שגיאה: ${err.message}` : "שגיאה בתקשורת");
+      setActionMessage(
+        err instanceof Error ? `❌ שגיאה: ${err.message}` : "שגיאה בתקשורת",
+      );
       setActionLoading(false);
     }
   };
@@ -148,10 +182,14 @@ function ViewSiteContent() {
     setActionMessage("📝 מעדכן את כתובת האתר ומריץ סריקה ראשונית...");
 
     try {
-      const res = await fetch("http://localhost:8000/update-site", {
+      const res = await fetch("process.env.NEXT_PUBLIC_API_URL/update-site", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ old_url: siteUrl.trim(), new_url: editUrl.trim(), user_id: targetUserId.trim() }),
+        body: JSON.stringify({
+          old_url: siteUrl.trim(),
+          new_url: editUrl.trim(),
+          user_id: targetUserId.trim(),
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || "נכשל בתהליך העדכון בשרת");
@@ -161,18 +199,29 @@ function ViewSiteContent() {
         setIsEditing(false);
         setActionMessage(null);
         setActionLoading(false);
-        router.push(isImpersonating ? `/dashboard/view-site?url=${encodeURIComponent(editUrl.trim())}&viewAs=${viewAsId}` : `/dashboard/view-site?url=${encodeURIComponent(editUrl.trim())}`);
+        router.push(
+          isImpersonating
+            ? `/dashboard/view-site?url=${encodeURIComponent(editUrl.trim())}&viewAs=${viewAsId}`
+            : `/dashboard/view-site?url=${encodeURIComponent(editUrl.trim())}`,
+        );
       }, 1500);
     } catch (err: unknown) {
-      setActionMessage(err instanceof Error ? `❌ שגיאה: ${err.message}` : "שגיאה בתקשורת");
+      setActionMessage(
+        err instanceof Error ? `❌ שגיאה: ${err.message}` : "שגיאה בתקשורת",
+      );
       setActionLoading(false);
     }
   };
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 bg-white rounded-3xl border border-gray-100 shadow-sm" dir="rtl">
-        <p className="text-gray-400 font-mono text-sm animate-pulse">טוען היסטוריה וגרפים של האתר...</p>
+      <div
+        className="flex flex-col items-center justify-center py-20 bg-white rounded-3xl border border-gray-100 shadow-sm"
+        dir="rtl"
+      >
+        <p className="text-gray-400 font-mono text-sm animate-pulse">
+          טוען היסטוריה וגרפים של האתר...
+        </p>
       </div>
     );
   }
@@ -180,11 +229,16 @@ function ViewSiteContent() {
   if (errorMsg || !stats) {
     return (
       <div className="max-w-2xl mx-auto" dir="rtl">
-        <Link href={backLink} className="text-gray-400 hover:text-gray-900 mb-6 inline-block text-sm transition-transform duration-200 hover:translate-x-1">
+        <Link
+          href={backLink}
+          className="text-gray-400 hover:text-gray-900 mb-6 inline-block text-sm transition-transform duration-200 hover:translate-x-1"
+        >
           ← חזרה ל-Dashboard
         </Link>
         <div className="bg-red-50 p-6 rounded-2xl text-center border border-red-100">
-          <p className="text-red-600 text-sm font-medium">{errorMsg || "שגיאה בטעינת הנתונים"}</p>
+          <p className="text-red-600 text-sm font-medium">
+            {errorMsg || "שגיאה בטעינת הנתונים"}
+          </p>
         </div>
       </div>
     );
@@ -195,7 +249,10 @@ function ViewSiteContent() {
       {isImpersonating && (
         <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl flex justify-between items-center text-amber-900 text-xs font-bold shadow-sm animate-in slide-in-from-top-2">
           <span>👀 פנל ניהול: צפייה באנליטיקה של לקוח מנוהל</span>
-          <Link href={`/dashboard?viewAs=${viewAsId}`} className="bg-amber-600 hover:bg-amber-700 text-white px-3 py-1.5 rounded-xl transition-all active:scale-95">
+          <Link
+            href={`/dashboard?viewAs=${viewAsId}`}
+            className="bg-amber-600 hover:bg-amber-700 text-white px-3 py-1.5 rounded-xl transition-all active:scale-95"
+          >
             חזרה לדשבורד המנוהל ←
           </Link>
         </div>
@@ -203,13 +260,18 @@ function ViewSiteContent() {
 
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-gray-100 pb-6">
         <div>
-          <Link href={backLink} className="text-gray-400 hover:text-gray-950 mb-2 inline-block text-sm transition-all hover:translate-x-1">
+          <Link
+            href={backLink}
+            className="text-gray-400 hover:text-gray-950 mb-2 inline-block text-sm transition-all hover:translate-x-1"
+          >
             ← חזרה לכל האתרים
           </Link>
           <h1 className="text-2xl font-black text-gray-950 truncate tracking-tight font-mono">
             {stats.url.replace("https://", "").replace("http://", "")}
           </h1>
-          <p className="text-xs text-gray-400 mt-0.5">אנליטיקה, יציבות וניהול הגדרות בזמן אמת</p>
+          <p className="text-xs text-gray-400 mt-0.5">
+            אנליטיקה, יציבות וניהול הגדרות בזמן אמת
+          </p>
         </div>
 
         <div className="flex items-center gap-3 self-start sm:self-auto">
@@ -222,7 +284,10 @@ function ViewSiteContent() {
             {actionLoading ? "⚡ סורק אתר..." : "⚡ בדוק עכשיו"}
           </button>
           <button
-            onClick={() => { setIsEditing(!isEditing); setActionMessage(null); }}
+            onClick={() => {
+              setIsEditing(!isEditing);
+              setActionMessage(null);
+            }}
             disabled={actionLoading}
             className="bg-gray-50 hover:bg-indigo-50 border border-gray-200 hover:border-indigo-100 text-gray-700 hover:text-indigo-600 px-4 py-2 rounded-xl text-xs font-bold transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-2xs disabled:opacity-40"
           >
@@ -240,9 +305,14 @@ function ViewSiteContent() {
 
       {isEditing && (
         <div className="bg-white border border-indigo-100 p-5 rounded-2xl shadow-xs animate-in slide-in-from-top-2 duration-200">
-          <form onSubmit={handleUpdateSite} className="flex flex-col sm:flex-row items-end gap-4">
+          <form
+            onSubmit={handleUpdateSite}
+            className="flex flex-col sm:flex-row items-end gap-4"
+          >
             <div className="flex-1 w-full">
-              <label className="block text-xs font-bold text-gray-500 mb-1.5">עדכן כתובת URL לניטור:</label>
+              <label className="block text-xs font-bold text-gray-500 mb-1.5">
+                עדכן כתובת URL לניטור:
+              </label>
               <input
                 type="url"
                 required
@@ -273,36 +343,55 @@ function ViewSiteContent() {
       <div className="grid gap-6 grid-cols-1 sm:grid-cols-2">
         <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between">
           <div>
-            <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-1">זמינות האתר (Uptime)</span>
-            <span className="text-3xl font-black text-emerald-600 font-mono">{stats.uptime_percentage}%</span>
+            <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-1">
+              זמינות האתר (Uptime)
+            </span>
+            <span className="text-3xl font-black text-emerald-600 font-mono">
+              {stats.uptime_percentage}%
+            </span>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 font-bold flex items-center justify-center text-sm">✓</div>
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 font-bold flex items-center justify-center text-sm">
+            ✓
+          </div>
         </div>
 
         <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between">
           <div>
-            <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-1">זמן תגובה ממוצע</span>
-            <span className="text-3xl font-black text-indigo-600 font-mono">{stats.average_response_time} <span className="text-xs font-medium text-gray-400">ms</span></span>
+            <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-1">
+              זמן תגובה ממוצע
+            </span>
+            <span className="text-3xl font-black text-indigo-600 font-mono">
+              {stats.average_response_time}{" "}
+              <span className="text-xs font-medium text-gray-400">ms</span>
+            </span>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 font-bold flex items-center justify-center text-sm">⚡</div>
+          <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 font-bold flex items-center justify-center text-sm">
+            ⚡
+          </div>
         </div>
       </div>
 
       {/* הזרקת הרכיבים המבודדים החדשים */}
       <SiteAnalyticsGraph history={stats.history} />
       <SiteLogsTable history={stats.history} />
-
     </div>
   );
 }
 
 export default function ViewSitePage() {
   return (
-    <Suspense fallback={
-      <div className="flex flex-col items-center justify-center py-20 bg-white rounded-3xl border border-gray-100 shadow-sm" dir="rtl">
-        <p className="text-gray-400 font-mono text-sm animate-pulse">טוען נתוני אנליטיקה...</p>
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div
+          className="flex flex-col items-center justify-center py-20 bg-white rounded-3xl border border-gray-100 shadow-sm"
+          dir="rtl"
+        >
+          <p className="text-gray-400 font-mono text-sm animate-pulse">
+            טוען נתוני אנליטיקה...
+          </p>
+        </div>
+      }
+    >
       <ViewSiteContent />
     </Suspense>
   );

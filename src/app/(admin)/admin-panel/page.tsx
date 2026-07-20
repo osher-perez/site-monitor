@@ -45,7 +45,7 @@ export default function AdminDashboardPage() {
 
     async function fetchAdminData() {
       try {
-        const response = await fetch("http://localhost:8000/admin/overview");
+        const response = await fetch("process.env.NEXT_PUBLIC_API_URL/admin/overview");
         if (!response.ok) {
           throw new Error("נכשל בטעינת נתוני מנהל מהשרת");
         }
