@@ -6,30 +6,37 @@ export async function GET() {
     const client = await clientPromise;
     const db = client.db('site_monitor');
 
-    // שליפת סך הכל משתמשים, אתרים מנוטרים ובדיקות
-    const totalUsers = await db.collection('users').countDocuments();
-    const totalSites = await db.collection('sites').countDocuments();
-    const users = await db.collection('users').find({}).limit(50).toArray();
+    const users = await db.collection('users').find({}).toArray();
+    const sites = await db.collection('sites').find({}).toArray();
 
-    return NextResponse.json({
-      success: true,
-      stats: {
-        totalUsers,
+    // בניית הדוח עבור כל לקוח
+    const report = users.map((user) => {
+      const userIdStr = user._id.toString();
+      const userSites = sites.filter(
+        (site) => site.userId === userIdStr || site.userId === user.email
+      );
+
+      const totalSites = userSites.length;
+      const upSites = userSites.filter((s) => s.status === 'ONLINE' || s.isUp || s.is_up).length;
+      const downSites = totalSites - upSites;
+
+      return {
+        userId: userIdStr,
+        name: user.name || 'ללא שם',
+        email: user.email || '',
+        phone: user.phone || 'לא הוזן',
         totalSites,
-        activeMonitors: totalSites,
-      },
-      users: users.map(u => ({
-        id: u._id.toString(),
-        name: u.name || 'ללא שם',
-        email: u.email,
-        role: u.role || 'customer',
-        createdAt: u.createdAt,
-      })),
+        upSites,
+        downSites,
+        createdAt: user.createdAt || null,
+      };
     });
+
+    return NextResponse.json(report);
   } catch (error) {
     console.error('Admin Overview Error:', error);
     return NextResponse.json(
-      { error: 'שגיאה שטעינת נתוני מנהל המערכת' },
+      { error: 'שגיאה בטעינת נתוני מנהל מהשרת' },
       { status: 500 }
     );
   }
