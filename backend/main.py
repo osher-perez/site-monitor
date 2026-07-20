@@ -23,8 +23,7 @@ origins = [
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
-    allow_origin_regex=r"https://.*\.vercel\.app",  # תומך בכל Preview Deployments של Vercel
+    allow_origins=["*"],  # מאשר לכל הדומיינים (Vercel, Localhost וכו') לפנות ל-API
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
