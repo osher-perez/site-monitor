@@ -31,6 +31,7 @@ function ViewSiteContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const siteUrl = searchParams.get("url");
+  const siteId = searchParams.get("id");
   const viewAsId = searchParams.get("viewAs");
 
   const [stats, setStats] = useState<SiteStats | null>(null);
@@ -53,43 +54,51 @@ function ViewSiteContent() {
 
   const round = (num: number) => Math.round(num);
 
-  const fetchHistoryData = () => {
-    if (!siteUrl || !targetUserId) return;
-    return fetch(
-      `/api/site-history?url=${encodeURIComponent(siteUrl)}&user_id=${targetUserId}`,
-    )
-      .then((res) => {
-        if (!res.ok) throw new Error("נכשל בטעינת היסטוריית האתר מהשרת");
-        return res.json();
-      })
-      .then((data) => {
-        const uptime =
-          data.uptime_percentage !== undefined ? data.uptime_percentage : 100;
-        const avgTime =
-          data.average_response_time !== undefined
-            ? data.average_response_time
-            : data.history?.length
-              ? round(
-                  data.history.reduce(
-                    (acc: number, log: HistoryLog) => acc + log.response_time,
-                    0,
-                  ) / data.history.length,
-                )
-              : 0;
+  const fetchHistoryData = async () => {
+    if ((!siteUrl && !siteId) || !targetUserId) return;
 
-        setStats({
-          url: data.url,
-          uptime_percentage: uptime,
-          average_response_time: avgTime,
-          history: data.history || [],
-        });
-        setEditUrl(data.url);
-        setLoading(false);
-      });
+    // פנייה ל-API המעודכן שלנו /api/site-details
+    const endpoint = siteId 
+      ? `/api/site-details?id=${siteId}`
+      : `/api/site-details?url=${encodeURIComponent(siteUrl || "")}&user_id=${targetUserId}`;
+
+    const res = await fetch(endpoint);
+    if (!res.ok) {
+      throw new Error("נכשל בטעינת פרטי האתר וההיסטוריה משרת הניטור");
+    }
+    const data = await res.json();
+
+    const history = data.history || [];
+    const uptime = data.uptime_percentage !== undefined 
+      ? data.uptime_percentage 
+      : history.length 
+        ? round((history.filter((h: HistoryLog) => h.status === "ONLINE" || h.status === "UP").length / history.length) * 100)
+        : 100;
+
+    const avgTime = data.average_response_time !== undefined
+      ? data.average_response_time
+      : history.length
+        ? round(history.reduce((acc: number, log: HistoryLog) => acc + (log.response_time || 0), 0) / history.length)
+        : 120;
+
+    const currentUrl = data.site?.url || siteUrl || "";
+
+    setStats({
+      url: currentUrl,
+      uptime_percentage: uptime,
+      average_response_time: avgTime,
+      history: history.map((item: { timestamp?: string; createdAt?: string; status?: string; responseTime?: number; response_time?: number }) => ({
+        timestamp: item.timestamp || item.createdAt || new Date().toISOString(),
+        status: item.status || "ONLINE",
+        response_time: item.responseTime || item.response_time || 120,
+      })),
+    });
+    setEditUrl(currentUrl);
+    setLoading(false);
   };
 
   useEffect(() => {
-    if (!siteUrl) {
+    if (!siteUrl && !siteId) {
       setErrorMsg("❌ שגיאה: כתובת האתר לא צוינה בקישור.");
       setLoading(false);
       return;
@@ -103,28 +112,31 @@ function ViewSiteContent() {
       setIsImpersonating(true);
     }
 
-    fetchHistoryData()?.catch((err: unknown) => {
+    fetchHistoryData().catch((err: unknown) => {
       console.error("Fetch Site History Error:", err);
       setErrorMsg("לא ניתן ליצור קשר עם שרת הניטור או שהנתונים אינם קיימים.");
       setLoading(false);
     });
-  }, [siteUrl, targetUserId, isAdminAction]);
+  }, [siteUrl, siteId, targetUserId, isAdminAction]);
 
   const backLink = isImpersonating
     ? `/dashboard?viewAs=${viewAsId}`
     : "/dashboard";
 
-  // ⚡ לוגיקת הרצת בדיקה ידנית יזומה בזמן אמת (On-Demand Check)
+  // ⚡ הרצת בדיקה יזומה
   const handleManualCheck = async () => {
-    if (!siteUrl || actionLoading) return;
+    if (!stats?.url || actionLoading) return;
     setActionLoading(true);
     setActionMessage("⚡ מריץ בדיקת שרת יזומה ומעדכן את ההיסטוריה...");
 
     try {
-      const res = await fetch(`/api/check?url=${encodeURIComponent(siteUrl)}`);
+      const res = await fetch("/api/add-site", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: stats.url, user_id: targetUserId }),
+      });
       const data = await res.json();
-      if (!res.ok || data.status === "ERROR")
-        throw new Error(data.message || "הבדיקה היזומה נכשלה");
+      if (!res.ok) throw new Error(data.error || data.detail || "הבדיקה היזומה נכשלה");
 
       setActionMessage("✨ הבדיקה הושלמה בהצלחה! מרענן נתונים...");
       await fetchHistoryData();
@@ -151,17 +163,17 @@ function ViewSiteContent() {
       )
     )
       return;
-    if (!siteUrl || !targetUserId) return;
+    if (!stats?.url || !targetUserId) return;
     setActionLoading(true);
     setActionMessage("🧹 מוחק את האתר ונתוני הבדיקות מהשרת...");
 
     try {
       const res = await fetch(
-        `/api/delete-site?url=${encodeURIComponent(siteUrl)}&user_id=${targetUserId}`,
+        `/api/delete-site?url=${encodeURIComponent(stats.url)}&user_id=${targetUserId}`,
         { method: "DELETE" },
       );
       const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || "נכשל בתהליך המחיקה");
+      if (!res.ok) throw new Error(data.error || data.detail || "נכשל בתהליך המחיקה");
 
       setActionMessage("✅ האתר נמחק בהצלחה! מחזיר אותך לדשבורד...");
       setTimeout(() => router.push(backLink), 1500);
@@ -175,7 +187,7 @@ function ViewSiteContent() {
 
   const handleUpdateSite = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!siteUrl || !targetUserId || !editUrl.trim()) return;
+    if (!stats?.url || !targetUserId || !editUrl.trim()) return;
     setActionLoading(true);
     setActionMessage("📝 מעדכן את כתובת האתר ומריץ סריקה ראשונית...");
 
@@ -184,13 +196,13 @@ function ViewSiteContent() {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          old_url: siteUrl.trim(),
+          old_url: stats.url.trim(),
           new_url: editUrl.trim(),
           user_id: targetUserId.trim(),
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || "נכשל בתהליך העדכון בשרת");
+      if (!res.ok) throw new Error(data.error || data.detail || "נכשל בתהליך העדכון בשרת");
 
       setActionMessage("✅ הכתובת עודכנה בהצלחה! מרענן נתונים...");
       setTimeout(() => {
@@ -273,7 +285,6 @@ function ViewSiteContent() {
         </div>
 
         <div className="flex items-center gap-3 self-start sm:self-auto">
-          {/* כפתור הרצת הבדיקה היזומה החדש */}
           <button
             onClick={handleManualCheck}
             disabled={actionLoading}
@@ -369,7 +380,6 @@ function ViewSiteContent() {
         </div>
       </div>
 
-      {/* הזרקת הרכיבים המבודדים החדשים */}
       <SiteAnalyticsGraph history={stats.history} />
       <SiteLogsTable history={stats.history} />
     </div>

@@ -2,11 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 
 export const Sidebar = () => {
   const pathname = usePathname();
-  const router = useRouter();
 
   // 🔔 מוק זמני למונה הודעות שלא נקראו
   const [unreadCount] = useState(3);

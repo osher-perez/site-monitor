@@ -80,30 +80,37 @@ function DashboardContent() {
         if (!isMounted) return;
 
         if (Array.isArray(data)) {
-          const formatted: Site[] = data.map((item: Record<string, unknown>, index: number) => {
-            const rawId = item._id || item.id;
-            const siteId = typeof rawId === "string" ? rawId : `site-${index}`;
-            const url = typeof item.url === "string" ? item.url : "";
-            const status = typeof item.status === "string" ? item.status : "ONLINE";
-            const lastChecked =
-              (typeof item.last_checked === "string" && item.last_checked) ||
-              (typeof item.lastChecked === "string" && item.lastChecked) ||
-              new Date().toISOString();
-            const isUp =
-              typeof item.isUp === "boolean"
-                ? item.isUp
-                : status === "ONLINE";
+          const formatted: Site[] = data.map(
+            (item: Record<string, unknown>, index: number) => {
+              const rawId = item._id || item.id;
+              const siteId =
+                typeof rawId === "string" ? rawId : `site-${index}`;
+              const url = typeof item.url === "string" ? item.url : "";
+              const status =
+                typeof item.status === "string" ? item.status : "ONLINE";
+              const lastChecked =
+                (typeof item.last_checked === "string" && item.last_checked) ||
+                (typeof item.lastChecked === "string" && item.lastChecked) ||
+                new Date().toISOString();
 
-            return {
-              _id: siteId,
-              id: siteId,
-              url,
-              status,
-              isUp,
-              last_checked: lastChecked,
-              lastChecked,
-            } as Site;
-          });
+              const isUp =
+                typeof item.isUp === "boolean"
+                  ? item.isUp
+                  : typeof item.is_up === "boolean"
+                  ? item.is_up
+                  : status === "ONLINE" || status === "UP";
+
+              return {
+                _id: siteId,
+                id: siteId,
+                url,
+                status,
+                isUp,
+                last_checked: lastChecked,
+                lastChecked,
+              } as Site;
+            }
+          );
 
           setSites(formatted);
         } else {
@@ -174,7 +181,7 @@ function DashboardContent() {
           </div>
           <Link
             href="/admin-panel"
-            className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-xl transition-all shadow-sm active:scale-95 transform hover:scale-[1.02] active:scale-[0.98]"
+            className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-xl transition-all shadow-sm active:scale-95 transform hover:scale-[1.02]"
           >
             חזרה לפנל הניהול ←
           </Link>

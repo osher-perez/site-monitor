@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import clientPromise from "@/lib/mongodb";
-import { ObjectId } from "mongodb";
+import { ObjectId, Filter, Document } from "mongodb";
 
 export async function GET(request: Request) {
   try {
@@ -8,17 +8,18 @@ export async function GET(request: Request) {
     const userId = searchParams.get("user_id") || searchParams.get("userId");
 
     if (!userId) {
-      return NextResponse.json(
-        { error: "Missing user_id parameter" },
-        { status: 400 }
-      );
+      // החזרת מערך ריק במקום אובייקט שגיאה מונעת קריסות client ב-data.length או data.map
+      return NextResponse.json([]);
     }
 
     const client = await clientPromise;
     const db = client.db("site_monitor");
 
-    // בנית שאילתה גמישה: תומך בחיפוש לפי string וגם לפי ObjectId אם מדובר ב-ID חוקי
-    const queryConditions: any[] = [{ userId: userId }, { user_id: userId }];
+    // הגדרת מערך תנאים טיפוסים קשיח ללא any
+    const queryConditions: Filter<Document>[] = [
+      { userId: userId },
+      { user_id: userId },
+    ];
 
     if (ObjectId.isValid(userId)) {
       queryConditions.push({ userId: new ObjectId(userId) });
@@ -30,23 +31,27 @@ export async function GET(request: Request) {
       .find({ $or: queryConditions })
       .toArray();
 
-    // נרמל את התשובה לפורמט אחיד
-    const formattedSites = sites.map((site) => ({
-      _id: site._id.toString(),
-      id: site._id.toString(),
-      url: site.url,
-      status: site.status || "ONLINE",
-      isUp: site.status === "ONLINE" || site.isUp === true || site.is_up === true,
-      lastChecked: site.lastChecked || site.createdAt || new Date(),
-      createdAt: site.createdAt || new Date(),
-    }));
+    const formattedSites = sites.map((site) => {
+      const siteId = site._id.toString();
+      const isUp = site.status === "ONLINE" || site.isUp === true || site.is_up === true;
+
+      return {
+        _id: siteId,
+        id: siteId,
+        url: site.url,
+        status: site.status || (isUp ? "ONLINE" : "OFFLINE"),
+        statusCode: site.statusCode || 200,
+        responseTime: site.responseTime || 120,
+        isUp,
+        lastChecked: site.lastChecked || site.createdAt || new Date(),
+        last_checked: site.lastChecked || site.createdAt || new Date(),
+        createdAt: site.createdAt || new Date(),
+      };
+    });
 
     return NextResponse.json(formattedSites);
   } catch (error) {
     console.error("List Sites Error:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch sites from database" },
-      { status: 500 }
-    );
+    return NextResponse.json([]);
   }
 }
