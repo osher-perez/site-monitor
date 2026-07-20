@@ -23,8 +23,12 @@ origins = [
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # מאשר לכל הדומיינים (Vercel, Localhost וכו') לפנות ל-API
-    allow_credentials=True,
+    allow_origins=[
+        "http://localhost:3000",
+        "https://site-monitor-five.vercel.app",
+    ],
+    allow_origin_regex=r"https://.*\.vercel\.app",  # מאפשר את כל ה-Deployments ב-Vercel
+    allow_credentials=False,  # 👈 שונה ל-False עבור ראוטים ציבוריים כמו quick-scan
     allow_methods=["*"],
     allow_headers=["*"],
 )
