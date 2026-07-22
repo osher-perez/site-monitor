@@ -1,5 +1,6 @@
-/** @type {import('next').NextModel} */
-const nextConfig = {
+import type { NextConfig } from "next";
+
+const nextConfig: NextConfig = {
   /* config options here */
 };
 
