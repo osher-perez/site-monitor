@@ -1,4 +1,6 @@
-# dependencies (Node.js)
+# ==========================================
+# 📦 Node.js & Package Managers
+# ==========================================
 /node_modules
 /.pnp
 .pnp.*
@@ -8,31 +10,60 @@
 !.yarn/releases
 !.yarn/versions
 
-# Python Virtual Environments (חשוב מאוד - מונע עליית אלפי קבצי שרת לגיט)
+# ==========================================
+# 🐍 Python Virtual Environments & Caching
+# ==========================================
+# Virtual Environments (מונע עליית אלפי קבצי סביבה וירטואלית לגיט)
 .venv/
 venv/
 ENV/
 env/
+python-worker/venv/
+python-worker/.venv/
 
-# Python caching & bytecode
+# Python Bytecode & Cache
 **/__pycache__/
 *.pyc
 *.pyo
 *.pyd
 .pytest_cache/
 .ipynb_checkpoints/
+.ruff_cache/
 
-# testing
-/coverage
+# ==========================================
+# 🔒 Environment & Secret Files (חסימה הרמטית)
+# ==========================================
+.env
+.env.*
+!.env.example
 
-# next.js
+# ==========================================
+# 🌐 Next.js & Build Outputs
+# ==========================================
 /.next/
 /out/
+/build/
+.vercel
+*.tsbuildinfo
+next-env.d.ts
 
-# production
-/build
+# ==========================================
+# 🧪 Testing, Debug & Local Temp Files
+# ==========================================
+/coverage/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
 
-# IDEs and editors (קבצי הגדרות אישיות של המחשב שלך)
+# Email Service Test/Fallback HTML outputs (קבצים זמניים שנוצרים בבדיקות מייל)
+fallback_email_*.html
+test_email_*.html
+
+# ==========================================
+# 💻 IDEs, Editors & OS System Files
+# ==========================================
 .vscode/
 .idea/
 *.suo
@@ -40,29 +71,7 @@ env/
 *.njsproj
 *.sln
 *.swp
-
-# misc
 .DS_Store
+Thumbs.db
 *.pem
 notes.txt
-
-# debug logs
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.pnpm-debug.log*
-
-# env files - חסימה מוחלטת של קבצי סיסמאות ומפתחות!
-.env
-.env.local
-.env.development
-.env.production
-.env.development.local
-.env.local.errors
-
-# vercel
-.vercel
-
-# typescript
-*.tsbuildinfo
-next-env.d.ts

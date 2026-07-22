@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>האתר חזר לשגרה</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f6f8; margin: 0; padding: 0; color: #333333; text-align: right; }
+        .wrapper { width: 100%; table-layout: fixed; background-color: #f4f6f8; padding-bottom: 40px; padding-top: 40px; }
+        .container { max-width: 600px; background-color: #ffffff; margin: 0 auto; border-radius: 8px; border-top: 6px solid #28a745; box-shadow: 0 4px 12px rgba(0,0,0,0.05); overflow: hidden; }
+        .header { padding: 30px; background-color: #f8fff9; text-align: center; border-bottom: 1px solid #e8f5e9; }
+        .header h1 { color: #1e7e34; margin: 0; font-size: 24px; font-weight: bold; }
+        .content { padding: 30px; line-height: 1.6; }
+        .meta-box { background-color: #f8f9fa; border-right: 4px solid #28a745; padding: 15px; margin: 20px 0; border-radius: 4px; }
+        .meta-item { margin-bottom: 8px; font-size: 15px; }
+        .meta-item:last-child { margin-bottom: 0; }
+        .footer { padding: 20px; text-align: center; font-size: 12px; color: #777777; background-color: #fafafa; border-top: 1px solid #eeeeee; }
+        .btn { display: inline-block; padding: 12px 24px; background-color: #28a745; color: #ffffff !important; text-decoration: none; border-radius: 4px; font-weight: bold; margin-top: 15px; }
+    </style>
+</head>
+<body>
+    <div class="wrapper">
+        <div class="container">
+            <div class="header">
+                <h1>✅ Operational: האתר חזר לשגרה</h1>
+            </div>
+            <div class="content">
+                <p>שלום,</p>
+                <p>שרת הניטור של <strong>SiteMonitor</strong> מעדכן כי נקודת הקצה חזרה להגיב בצורה תקינה ומציגה זמינות מלאה ברשת.</p>
+                
+                <div class="meta-box">
+                    <div class="meta-item"><strong>🔗 כתובת היעד:</strong> {{ site_url }}</div>
+                    <div class="meta-item"><strong>⏳ משך זמן ההשבתה (Downtime):</strong> {{ downtime_duration }}</div>
+                    <div class="meta-item"><strong>🚦 סטטוס נוכחי:</strong> 200 OK (זמין)</div>
+                </div>
+
+                <p>כל מערכות הניטור וההפצה המקבילות עודכנו על חזרה למצב שגרה.</p>
+                
+                <center>
+                    <a href="{{ dashboard_url }}" class="btn">כניסה למרכז הבקרה ←</a>
+                </center>
+            </div>
+            <div class="footer">
+                נשלח אוטומטית על ידי מערכת הניטור הרשמית של SiteMonitor Console.<br>
+                אנא אל תשיב למייל זה.
+            </div>
+        </div>
+    </div>
+</body>
+</html>
