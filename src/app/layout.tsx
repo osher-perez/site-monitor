@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { Footer } from "@/components/Footer";
+import { Footer } from "@/components/public/Footer";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",

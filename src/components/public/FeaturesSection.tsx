@@ -1,5 +1,3 @@
-import React from 'react';
-
 const features = [
   {
     icon: "🚀",
@@ -22,35 +20,38 @@ export const FeaturesSection = () => {
   return (
     <div id="features" className="text-right" dir="rtl">
       
-      {/* כותרת קטנה ומזקקת מעל הגריד */}
-      <div className="text-center mb-16">
-        <h2 className="text-3xl font-black tracking-tight text-gray-900 sm:text-4xl">
+      {/* כותרת קודקת ומהודקת */}
+      <div className="text-center mb-8">
+        <span className="text-xs font-semibold uppercase tracking-wider text-blue-600 bg-blue-50 px-3 py-1 rounded-full border border-blue-100 inline-block mb-3">
+          יכולות הליבה
+        </span>
+        <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-gray-900">
           תשתית פרואקטיבית לזמינות האתר
         </h2>
-        <p className="mt-3 max-w-2xl mx-auto text-sm text-gray-400 font-medium">
+        <p className="mt-2 max-w-xl mx-auto text-sm text-gray-600 font-medium">
           ניטור רציף, התראות מיידיות וממשק ניהול אחיד הפועל ברקע 24/7.
         </p>
       </div>
 
-      {/* הגריד של הכרטיסיות - נקי, בהיר ויוקרתי */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+      {/* גריד כרטיסיות מודרני עם מרווחים קומפקטיים */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {features.map((feature, index) => (
           <div 
             key={index}
-            className="group p-8 bg-white border border-gray-100 rounded-3xl shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 active:scale-98"
+            className="group relative p-6 bg-white border border-gray-200/80 rounded-2xl shadow-sm hover:shadow-xl hover:border-blue-500/30 hover:-translate-y-1 transition-all duration-300 active:scale-95"
           >
-            {/* האייקון עם האנימציה הדינמית */}
-            <div className="text-4xl mb-6 group-hover:scale-110 transition-transform inline-block">
+            {/* אייקון בתוך עיגול מעוצב */}
+            <div className="w-12 h-12 mb-4 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-center text-2xl group-hover:scale-110 group-hover:bg-blue-50 group-hover:border-blue-100 transition-all">
               {feature.icon}
             </div>
             
             {/* כותרת הפיצ'ר */}
-            <h3 className="text-lg font-bold text-gray-950 mb-2 font-sans">
+            <h3 className="text-base font-bold text-gray-900 mb-2">
               {feature.title}
             </h3>
             
             {/* תיאור הפיצ'ר */}
-            <p className="text-gray-500 text-xs leading-relaxed font-normal">
+            <p className="text-gray-600 text-sm leading-relaxed font-normal">
               {feature.description}
             </p>
           </div>
